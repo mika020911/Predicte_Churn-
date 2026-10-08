@@ -1,0 +1,3 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/churn-saas/backend/.venv/bin/python"
+}

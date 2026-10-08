@@ -61,8 +61,9 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         rng.integers(0, 180, size=n_samples), unit="D"
     )
 
-    # Score latent de départ
-    latent_score = (
+    SIGNAL_STRENGTH = 2.0   # ajoute cette ligne en haut de generate_churn_dataset
+
+    signal = (
         -0.03 * tenure_months
         - 0.8 * contract_type
         + 0.02 * np.clip(-mrr_change_pct, 0, None)
@@ -71,8 +72,8 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         - 1.5 * (frequency_trend_30d - 1)
         - 1.2 * engagement_breadth
         + 0.6 * payment_failures_90d
-        + rng.normal(0, 0.8, size=n_samples)
     )
+    latent_score = SIGNAL_STRENGTH * signal + rng.normal(0, 0.8, size=n_samples)
     latent_score += find_bias(latent_score, churn_rate)
     prob_churn = 1 / (1 + np.exp(-latent_score))
     churn = rng.binomial(1, prob_churn)

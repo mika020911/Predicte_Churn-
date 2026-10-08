@@ -3,12 +3,12 @@ from pathlib import Path
 ML_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ML_DIR / "data"
 MODELS_DIR = ML_DIR / "models"
-REPORT_DIR = ML_DIR / "reports"
+REPORTS_DIR = ML_DIR / "reports"
 
 RAW_DATA_PATH = DATA_DIR / "raw" / "churn_data.csv"
 MODEL_PATH = MODELS_DIR / "random_forest_churn.pkl"
-CALIBRATED_MODEL_PATH = MODELS_DIR / "calibrated_random_forest_calibrated.pkl"
-PROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"
+CALIBRATED_MODEL_PATH = MODELS_DIR / "random_forest_calibrated.pkl"
+#PROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"
 
 FEATURE_COLUMNS = [
     "tenure_months",
@@ -34,12 +34,13 @@ CHURN_RATE = 0.18
 RANDOM_STATE = 42
 
 #Hyperparametre du modelsRF
+ID_COLUMN = "customer_id"
 RF_PARAMS = {
     "n_estimators": 200,
     "max_depth": 12,
     "min_samples_split": 10,
     "min_samples_leaf": 5,
-    "class_weight": "balanced",
+#    "class_weight": "balanced",
     "random_state": RANDOM_STATE,
     "n_jobs": -1,
 }

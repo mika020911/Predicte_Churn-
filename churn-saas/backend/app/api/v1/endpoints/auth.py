@@ -1,16 +1,18 @@
 import secrets
 from datetime import timedelta
 
+import secrets
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_active_user, get_db
 from app.config import settings
-from app.database import get_db
-from app.api.deps import get_current_active_user
-from app.core.security import verify_password, create_access_token, get_password_hash
-from app.models import User, Organization, RiskSettings
-from app.schemas.auth import Token, LoginRequest
+from app.core.security import create_access_token, get_password_hash, verify_password
+from app.models import Organization, User, RiskSettings
+from app.schemas.auth import LoginRequest, Token
 from app.schemas.user import UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -24,7 +26,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Le nom de l'organisation est requis")
     try:
         organization = Organization(
-            name=payload.organization_name
+            name=payload.organization_name,
             api_key=secrets.token_urlsafe(32),
             is_active=True
         )
@@ -32,31 +34,33 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
         db.flush()  # Flush to get the organization ID
 
         user = User(
-            Organization_id=organization.id,
+            organization_id=organization.id,
             email=payload.email.lower(),
             hashed_password=get_password_hash(payload.password),
-            full_name=payload.full_name,
+            full_name= payload.full_name,
             role="admin",
             is_active=True,
         )
         db.add(user)
         db.flush()
 
-        RiskSettings = RiskSettings(
+        risk_settings= RiskSettings(
             organization_id= organization.id,
-            threshold_hight=0.7,
+            threshold_high=0.7,
             threshold_medium=0.4,
             updated_by_user_id= user.id,
         )
-        db.add(RiskSettings)
+        db.add(risk_settings)
 
         db.commit()
         db.refresh(user)
-    except Exception:
-        db.rollback
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()  # Affiche la trace complète dans le terminal uvicorn
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erreur lors de la création du compte"
+            detail=f"Erreur DB : {str(e)}",
         )
 
     return user

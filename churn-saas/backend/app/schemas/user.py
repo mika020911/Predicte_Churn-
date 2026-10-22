@@ -10,7 +10,7 @@ class OrganizationCreate(OrganizationBase):
     pass
 
 class OrganizationRead(OrganizationBase):
-    id: str 
+    id: int
     isactive: bool
     created_at: datetime
 
@@ -27,8 +27,8 @@ class UserCreate(UserBase):
     organization_name: Optional[str] = None
 
 class UserRead(UserBase):
-    id: str
-    organization_id:str
+    id: int
+    organization_id:int
     is_active:bool
     created_at: datetime
     updated_at: datetime

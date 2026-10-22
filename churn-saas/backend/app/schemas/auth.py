@@ -7,7 +7,7 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
-    org_id: Optional[str] = None
+    org_id: Optional[int] = None
     exp: Optional[int] = None
 
 class LoginRequest(BaseModel):

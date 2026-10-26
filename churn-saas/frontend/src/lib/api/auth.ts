@@ -16,7 +16,7 @@ export async function registerAPI(payload:RegisterPayload): Promise <User>{
     return response.json();
 }
 
-export async function loginApi (payload:LoginPayload): Promise<User> {
+export async function loginApi (payload:LoginPayload): Promise<TokenResponse> {
     const response = await fetch (`${API_URL}/auth/login/json`, {
         method:'POST',
         headers:{'Content-Type': 'application/json'},
@@ -29,7 +29,7 @@ export async function loginApi (payload:LoginPayload): Promise<User> {
     return response.json();
 }
 
-export async function getMeApi(token:string): Promise<TokenResponse> {
+export async function getMeApi(token:string): Promise<User> {
     const response = await fetch (`${API_URL}/auth/me`, {
         method:'GET',
         headers:{

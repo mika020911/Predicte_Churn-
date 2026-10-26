@@ -10,7 +10,7 @@ export interface User{
 }
 
 export interface TokenResponse{
-    ccess_token: string;
+    access_token: string;
     token_type: string;
 }
 export interface RegisterPayload {

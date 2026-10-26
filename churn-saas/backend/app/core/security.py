@@ -37,5 +37,5 @@ def create_access_token(
     to_encode = {"exp": expire, "sub": str(subject), "org_id": organization_id}
     
     
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
     return encoded_jwt

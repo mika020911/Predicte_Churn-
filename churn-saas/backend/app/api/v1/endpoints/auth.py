@@ -54,13 +54,11 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
 
         db.commit()
         db.refresh(user)
-    except Exception as e:
+    except Exception :
         db.rollback()
-        import traceback
-        traceback.print_exc()  # Affiche la trace complète dans le terminal uvicorn
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur DB : {str(e)}",
+            detail=f"Erreur lors de la création du compte",
         )
 
     return user

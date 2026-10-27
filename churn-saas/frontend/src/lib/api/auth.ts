@@ -33,7 +33,7 @@ export async function getMeApi(token:string): Promise<User> {
     const response = await fetch (`${API_URL}/auth/me`, {
         method:'GET',
         headers:{
-            Authorization: `Bearer${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application.json',
         },
     });

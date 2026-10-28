@@ -7,3 +7,10 @@ pandas==3.0.6
 scikit-learn==1.9.1
 shap==0.52.0
 jupyterlab==4.6.4
+pyjwt==2.15.1
+bcrypt==5.0.0
+pydantic-settings==2.16.1
+email_validator==2.3.0
+dnspython==2.9.0
+python-multipart==0.0.32
+pytest==9.1.1

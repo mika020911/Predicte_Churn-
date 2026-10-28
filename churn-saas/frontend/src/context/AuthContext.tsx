@@ -51,7 +51,8 @@ export function AuthProvider ({children}: {children: React.ReactNode}) {
     const register = async(payload: RegisterPayload)=>{
         await registerAPI(payload);
 //auto
-        await login ({email: payload.email, password:payload.password});
+        //await login ({email: payload.email, password:payload.password});
+        router.push('/auth/login?success=account_created');
 
     };
 

@@ -101,8 +101,9 @@ def login_json(payload:LoginRequest, db:Session = Depends(get_db)) -> Token:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Compte désactivé")
 
     access_token = create_access_token(
-        subject=user.id,
+        subject=str(user.id),
         organization_id=user.organization_id,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     return Token(access_token=access_token, token_type="bearer")
 

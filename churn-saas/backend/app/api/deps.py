@@ -27,8 +27,6 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
-        print("--- [DIAG] PAYLOAD DÉCODÉ ---")
-        print(payload)
         
         token_data = TokenPayload(**payload)
     except Exception as e:

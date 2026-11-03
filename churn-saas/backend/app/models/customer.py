@@ -24,5 +24,3 @@ class Customer(Base):
     observations = relationship("Observation", back_populates="customer", cascade="all, delete-orphan")
     predictions = relationship("Prediction", back_populates="customer", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="customer", cascade="all, delete-orphan")
-
-    external_id = Column(String(100), nullable=False, index=True)

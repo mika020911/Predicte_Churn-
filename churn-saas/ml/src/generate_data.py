@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from config import CHURN_RATE, ID_COLUMN, N_SAMPLES, RANDOM_STATE, RAW_DATA_PATH
+IMPORT_TEST_PATH = RAW_DATA_PATH.with_name("churn_import_test.csv")
 
 
 def find_bias(score, target, lo=-10.0, hi=10.0, iters=50):
@@ -103,6 +104,11 @@ def main():
     print(f"  Période       : {df['snapshot_date'].min().date()} -> {df['snapshot_date'].max().date()}")
     df.to_csv(RAW_DATA_PATH, index=False)
     print(f"Fichier sauvegardé : {RAW_DATA_PATH}")
+
+    df_import = df.drop(columns=["churn"]).copy()
+    df_import["contract_type"] = df_import["contract_type"].map({0: "mensuel", 1: "annuel"})
+    df_import.head(200).to_csv(IMPORT_TEST_PATH, index=False)
+    print(f"Fichier de test d'import : {IMPORT_TEST_PATH}")
 
 
 if __name__ == "__main__":

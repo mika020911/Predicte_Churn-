@@ -38,6 +38,10 @@ SIGNAL_STRENGTH = 2.0
 NOISE_STD = 1.5
 NONLINEAR_STRENGTH = 3.0
 
+# Découpage temporel des données (le reste = test)
+TRAIN_RATIO = 0.70
+VAL_RATIO = 0.15
+
 #Hyperparametre du modelsRF
 ID_COLUMN = "customer_id"
 RF_PARAMS = {

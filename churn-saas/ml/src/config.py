@@ -33,6 +33,11 @@ N_SAMPLES = 6000
 CHURN_RATE = 0.18
 RANDOM_STATE = 42
 
+#Difficulté du jeu de données synthétique
+SIGNAL_STRENGTH = 2.0
+NOISE_STD = 1.5
+NONLINEAR_STRENGTH = 3.0
+
 #Hyperparametre du modelsRF
 ID_COLUMN = "customer_id"
 RF_PARAMS = {

@@ -1,6 +1,6 @@
 customer_id,snapshot_date,tenure_months,contract_type,mrr_change_pct,support_tickets_30d,recency_days,frequency_trend_30d,engagement_breadth,payment_failures_90d
-C00000,2024-03-01,15,hebdomadaire,7.14,2,7,0.976,0.68,0
-C00001,2024-01-19,5,journaliere,4.85,1,10,0.914,0.792,0
+C00000,2024-03-01,15,mensuel,7.14,2,7,0.976,0.68,0
+C00001,2024-01-19,5,mensuel,4.85,1,10,0.914,0.792,0
 C00002,2024-06-18,22,mensuel,-1.62,2,1,0.887,0.749,1
 C00003,2024-04-28,25,annuel,3.3,4,1,0.962,0.634,0
 C00004,2024-05-26,2,mensuel,-2.34,3,4,0.955,0.554,1

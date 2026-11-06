@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from config import CHURN_RATE, ID_COLUMN, N_SAMPLES, RANDOM_STATE, RAW_DATA_PATH
+from config import (
+    CHURN_RATE, ID_COLUMN, N_SAMPLES, NOISE_STD, NONLINEAR_STRENGTH,
+    RANDOM_STATE, RAW_DATA_PATH, SIGNAL_STRENGTH,
+)
 IMPORT_TEST_PATH = RAW_DATA_PATH.with_name("churn_import_test.csv")
 
 
@@ -62,8 +65,6 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         rng.integers(0, 180, size=n_samples), unit="D"
     )
 
-    SIGNAL_STRENGTH = 2.0   # ajoute cette ligne en haut de generate_churn_dataset
-
     signal = (
         -0.03 * tenure_months
         - 0.8 * contract_type
@@ -73,8 +74,15 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         - 1.5 * (frequency_trend_30d - 1)
         - 1.2 * engagement_breadth
         + 0.6 * payment_failures_90d
+        
+        # effets non linéaires : seuils et interactions
+        + NONLINEAR_STRENGTH * (
+            0.8 * (recency_days > 30)
+            + 0.7 * ((tenure_months <= 3) & (contract_type == 0))
+            + 0.5 * ((payment_failures_90d >= 2) & (contract_type == 0))
+        )
     )
-    latent_score = SIGNAL_STRENGTH * signal + rng.normal(0, 0.8, size=n_samples)
+    latent_score = SIGNAL_STRENGTH * signal + rng.normal(0, NOISE_STD, size=n_samples)
     latent_score += find_bias(latent_score, churn_rate)
     prob_churn = 1 / (1 + np.exp(-latent_score))
     churn = rng.binomial(1, prob_churn)

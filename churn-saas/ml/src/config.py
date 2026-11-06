@@ -42,6 +42,31 @@ NONLINEAR_STRENGTH = 3.0
 TRAIN_RATIO = 0.70
 VAL_RATIO = 0.15
 
+# Benchmark (benchmark.py)
+CV_FOLDS = 5                # nombre de parties pour la validation croisée
+N_ITER_SEARCH = 20          # nombre de combinaisons d'hyperparamètres essayées par modèle
+DECISION_THRESHOLD = 0.4    # seuil pour recall / précision / F1 (provisoire, juste pour comparer)
+BENCHMARK_RESULTS_PATH = REPORTS_DIR / "benchmark_results.json"
+BENCHMARK_PLOT_PATH = REPORTS_DIR / "benchmark_curves.png"
+BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"
+
+RF_PARAM_GRID = {
+    "n_estimators": [200, 300, 500],
+    "max_depth": [6, 8, 12, None],
+    "min_samples_leaf": [3, 5, 10, 20],
+    "min_samples_split": [2, 10, 20],
+    "max_features": ["sqrt", 0.5],
+}
+
+XGB_PARAM_GRID = {
+    "n_estimators": [100, 200, 400],
+    "max_depth": [3, 4, 6],
+    "learning_rate": [0.03, 0.05, 0.1],
+    "subsample": [0.7, 0.85, 1.0],
+    "colsample_bytree": [0.7, 0.85, 1.0],
+    "min_child_weight": [1, 5, 10],
+}
+
 #Hyperparametre du modelsRF
 ID_COLUMN = "customer_id"
 RF_PARAMS = {

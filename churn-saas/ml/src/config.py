@@ -6,7 +6,6 @@ MODELS_DIR = ML_DIR / "models"
 REPORTS_DIR = ML_DIR / "reports"
 
 RAW_DATA_PATH = DATA_DIR / "raw" / "churn_data.csv"
-MODEL_PATH = MODELS_DIR / "random_forest_churn.pkl"
 
 CALIBRATION_RESULTS_PATH = REPORTS_DIR / "calibration_results.json"
 CALIBRATION_PLOT_PATH = REPORTS_DIR / "calibration_curve.png"
@@ -33,9 +32,6 @@ FEATURE_COLUMNS = [
 TARGET_COLUMN = "churn"
 DATE_COLUMN = "snapshot_date"
 
-#seuil de risque metier
-RISK_THRESHOLD_HIGH = 0.7
-RISK_THRESHOLD_MEDIUM = 0.4
 
 #Paramètres de génération de données
 N_SAMPLES = 6000
@@ -78,15 +74,7 @@ XGB_PARAM_GRID = {
 
 #Hyperparametre du modelsRF
 ID_COLUMN = "customer_id"
-RF_PARAMS = {
-    "n_estimators": 200,
-    "max_depth": 12,
-    "min_samples_split": 10,
-    "min_samples_leaf": 5,
-#    "class_weight": "balanced",
-    "random_state": RANDOM_STATE,
-    "n_jobs": -1,
-}
+
 #Création automatique des dossiers
 for d in [DATA_DIR, MODELS_DIR, REPORTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)

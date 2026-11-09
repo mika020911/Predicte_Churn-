@@ -10,6 +10,10 @@ MODEL_PATH = MODELS_DIR / "random_forest_churn.pkl"
 
 CALIBRATION_RESULTS_PATH = REPORTS_DIR / "calibration_results.json"
 CALIBRATION_PLOT_PATH = REPORTS_DIR / "calibration_curve.png"
+
+SHAP_PLOT_PATH = REPORTS_DIR / "shap_summary.png"
+N_REASONS = 3  # nombre de raisons affichées par client
+
 CALIBRATED_MODEL_PATH = MODELS_DIR / "calibrated_model.pkl"
 #PROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"
 

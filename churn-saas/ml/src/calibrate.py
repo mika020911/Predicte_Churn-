@@ -33,7 +33,6 @@ def expected_calibration_error(y_true, proba, n_bins=10):
             ece += mask.mean() * abs(proba[mask].mean() - y_true[mask].mean())
     return float(ece)
 
-
 def metrics(y, proba):
     y = np.asarray(y)
     return {
@@ -42,7 +41,6 @@ def metrics(y, proba):
         "brier": float(brier_score_loss(y, proba)),
         "ece": expected_calibration_error(y, proba),
     }
-
 
 def plot_calibration(y, probas):
     fig, ax = plt.subplots(figsize=(5.5, 5))

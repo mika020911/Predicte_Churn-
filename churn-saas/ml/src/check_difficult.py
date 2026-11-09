@@ -27,6 +27,5 @@ def main():
     lr = scores["Régression logistique"]
     print("OK : difficulté réaliste" if 0.80 <= lr <= 0.88 else "À ajuster : AUC LR hors de 0,80-0,88")
 
-
 if __name__ == "__main__":
     main()

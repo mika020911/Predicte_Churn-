@@ -1,0 +1,50 @@
+{
+  "model_name": "XGBoost",
+  "model_version": "xgboost-20261109",
+  "trained_at": "2026-11-09T06:31:53+00:00",
+  "feature_columns": [
+    "tenure_months",
+    "contract_type",
+    "mrr_change_pct",
+    "support_tickets_30d",
+    "recency_days",
+    "frequency_trend_30d",
+    "engagement_breadth",
+    "payment_failures_90d"
+  ],
+  "best_params": {
+    "subsample": 1.0,
+    "n_estimators": 200,
+    "min_child_weight": 1,
+    "max_depth": 3,
+    "learning_rate": 0.05,
+    "colsample_bytree": 0.7
+  },
+  "validation_metrics": {
+    "auc_pr": 0.720650979505911,
+    "auc_roc": 0.8671253644314868,
+    "brier": 0.09213589131832123,
+    "recall": 0.5485714285714286,
+    "precision": 0.8,
+    "f1": 0.6508474576271186,
+    "confusion": {
+      "tn": 711,
+      "fp": 24,
+      "fn": 79,
+      "tp": 96
+    }
+  },
+  "test_metrics": {
+    "auc_pr": 0.7479354242170009,
+    "auc_roc": 0.9024216524216525,
+    "brier": 0.07922623306512833,
+    "ece": 0.01626405143047457
+  },
+  "calibration_applied": false,
+  "calibration_note": "Le modèle brut est déjà bien calibré (voir calibration_results.json).",
+  "decision_threshold_for_metrics": 0.4,
+  "library_versions": {
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.1"
+  }
+}

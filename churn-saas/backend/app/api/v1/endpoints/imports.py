@@ -161,6 +161,6 @@ def get_import_batch_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Lot d'import introuvable.",
         )
-
+    
     return batch
 

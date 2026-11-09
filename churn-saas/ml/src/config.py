@@ -7,7 +7,10 @@ REPORTS_DIR = ML_DIR / "reports"
 
 RAW_DATA_PATH = DATA_DIR / "raw" / "churn_data.csv"
 MODEL_PATH = MODELS_DIR / "random_forest_churn.pkl"
-CALIBRATED_MODEL_PATH = MODELS_DIR / "random_forest_calibrated.pkl"
+
+CALIBRATION_RESULTS_PATH = REPORTS_DIR / "calibration_results.json"
+CALIBRATION_PLOT_PATH = REPORTS_DIR / "calibration_curve.png"
+CALIBRATED_MODEL_PATH = MODELS_DIR / "calibrated_model.pkl"
 #PROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"
 
 FEATURE_COLUMNS = [

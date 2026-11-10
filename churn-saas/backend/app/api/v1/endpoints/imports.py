@@ -1,5 +1,7 @@
 import json
 from typing import List, Optional
+import logging
+from app.services.prediction_service import generate_predictions_for_batch
  
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
@@ -96,6 +98,8 @@ def save_import_mapping(
 
 #-----------------------------IMPORTS---------------------------------------------------
 
+logger = logging.getLogger(__name__)
+
 @router.post("/upload", response_model=ImportBatchRead, status_code=status.HTTP_201_CREATED)
 async def upload_csv_import(
     file: UploadFile = File(...),
@@ -105,7 +109,7 @@ async def upload_csv_import(
 ):
     #Importe un CSV : applique le mapping, valide, crée les clients et enregistre les snapshots
     file_bytes = await _read_csv_upload(file)
-    return await run_in_threadpool(
+    batch = await run_in_threadpool(
         process_csv_import,
         file_bytes=file_bytes,
         filename=file.filename,
@@ -113,6 +117,20 @@ async def upload_csv_import(
         db=db,
         column_mapping=_parse_mapping(mapping),
     )
+
+    # Prédictions : si elles échouent, l'import reste valide et on le signale
+    if batch.status == "COMPLETED":
+        try:
+            await run_in_threadpool(
+                generate_predictions_for_batch, db, batch.id, current_user.organization_id
+            )
+        except Exception:
+            logger.exception("Échec du calcul des prédictions pour le lot %s", batch.id)
+            db.rollback()
+            batch = db.get(ImportBatch, batch.id)
+            batch.error_message = "Import réussi, mais le calcul des prédictions a échoué."
+            db.commit()
+    return batch
 
 
 @router.get("/", response_model=List[ImportBatchSummary])

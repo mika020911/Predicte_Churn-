@@ -20,7 +20,7 @@ class CustomerRiskRead(BaseModel):
     top_reasons:List[RiskReason] = Field(default_factory=list)
     model_version:Optional[str]=None
 
-class CustomerLiskResponse(BaseModel):
+class CustomerListResponse(BaseModel):
     items:List[CustomerRiskRead]
     total:int
     page:int

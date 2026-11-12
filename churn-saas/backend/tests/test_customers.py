@@ -172,3 +172,88 @@ def test_listing_uses_a_constant_number_of_queries(client, db_session):
 
     prediction_queries = [s for s in statements if "predictions" in s]
     assert len(prediction_queries) <= 3  # liste, total, répartition : jamais une requête par client
+
+def test_search_matches_customer_name_case_insensitively(client, db_session):
+    headers, org = register_and_login(client)
+
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "C001", "Alice Martin"),
+        0.8,
+        "high",
+    )
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "C002", "Bob Dupont"),
+        0.4,
+        "medium",
+    )
+
+    response = client.get(URL, params={"search": "alice"}, headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert [item["external_id"] for item in data["items"]] == ["C001"]
+
+
+def test_search_matches_external_id(client, db_session):
+    headers, org = register_and_login(client)
+
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "CLIENT-42", "Alice Martin"),
+        0.8,
+        "high",
+    )
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "CLIENT-99", "Bob Dupont"),
+        0.4,
+        "medium",
+    )
+
+    response = client.get(URL, params={"search": "42"}, headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["external_id"] == "CLIENT-42"
+
+
+def test_search_can_be_combined_with_zone_filter(client, db_session):
+    headers, org = register_and_login(client)
+
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "ALICE-HIGH", "Alice"),
+        0.9,
+        "high",
+    )
+    add_prediction(
+        db_session,
+        add_customer(db_session, org, "ALICE-LOW", "Alice"),
+        0.1,
+        "low",
+    )
+
+    response = client.get(
+        URL,
+        params={"search": "Alice", "zone": "high"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["external_id"] == "ALICE-HIGH"
+
+
+def test_blank_search_behaves_like_no_search(client, db_session):
+    headers, org = register_and_login(client)
+    seed(db_session, org, [(0.9, "high"), (0.4, "medium")])
+
+    response = client.get(URL, params={"search": "   "}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2

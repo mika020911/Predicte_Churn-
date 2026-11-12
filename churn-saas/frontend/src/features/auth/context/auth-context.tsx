@@ -1,9 +1,18 @@
 'use client';
+import type {
+  LoginPayload,
+  RegisterPayload,
+  User,
+} from "../types";
 
-import React, {createContext, useContext, useEffect, useState} from "react";
+import {
+  getMeApi,
+  loginApi,
+  registerAPI,
+} from "../api/auth-api";
+import { createContext } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useRouter } from "next/navigation";
-import {User, LoginPayload, RegisterPayload} from '@/types/auth'
-import { loginApi, registerAPI, getMeApi } from "@/lib/api/auth";
 
 interface AuthContextType{
     user: User | null;
@@ -45,7 +54,7 @@ export function AuthProvider ({children}: {children: React.ReactNode}) {
         setToken(data.access_token);
         const userData = await getMeApi(data.access_token);
         setUser(userData);
-        router.push('/dashboard');
+        router.push('/dashboard/customers');
     };
     
     const register = async(payload: RegisterPayload)=>{

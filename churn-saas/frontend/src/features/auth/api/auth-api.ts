@@ -1,4 +1,9 @@
-import { LoginPayload, RegisterPayload, TokenResponse, User } from "@/types/auth";
+import type {
+  LoginPayload,
+  RegisterPayload,
+  TokenResponse,
+  User,
+} from "../types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { uploadCsv } from "../api/imports-api";
 import type { ImportBatch } from "../types";
+import Link from "next/link";
 
 export function ImportForm() {
   const { token } = useAuth();
@@ -114,6 +115,13 @@ export function ImportForm() {
             <p className="mt-1 text-black">
               Fichier : {batch.filename} — état : {batch.status}
             </p>
+
+            <Link
+        href="/dashboard/customers"
+        className="inline-flex rounded-md bg-blue-700 px-5 py-2 font-semibold text-white hover:bg-blue-800"
+          >
+        Voir la liste des clients
+        </Link>
           </div>
 
           {batch.error_message && (

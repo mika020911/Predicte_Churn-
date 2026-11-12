@@ -20,11 +20,18 @@ def _active_predictions_query(db: Session, organization_id: int):
     )
 
 
-def list_customers(db: Session, organization_id: int, zone: Optional[str], page: int, page_size: int) -> dict:
+def list_customers(db: Session, organization_id: int, zone: Optional[str], page: int, page_size: int, search: Optional[str]=None) -> dict:
     """Liste paginée, triée par score décroissant, filtrable par zone de risque."""
     query = _active_predictions_query(db, organization_id)
     if zone:
         query = query.filter(Prediction.risk_level == zone)
+
+    search_term = (search or "").strip()
+    if search_term:
+        pattern = f"%{search_term}%"
+        query = query.filter(
+            (Customer.name.ilike(pattern)) | (Customer.external_id.ilike(pattern))
+        )
 
     total = query.count()
     rows = (

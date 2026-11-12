@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { getCustomers } from "../api/customers-api";
 import type {
@@ -48,6 +48,7 @@ function zoneBadgeClass(zone: RiskZone): string {
 export function CustomerList() {
   const { token, loading: authLoading } = useAuth();
 
+  const [expandedCustomerId, setExpandedCustomerId] = useState<number | null>(null);
   const [data, setData] = useState<CustomerListResponse | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -198,15 +199,25 @@ export function CustomerList() {
                   </td>
                 </tr>
               ) : data?.items.length ? (
-                data.items.map((customer) => (
-                  <tr
-                    key={customer.customer_id}
-                    className="text-black"
-                  >
+                data.items.map((customer) => {
+                  const isExpanded = expandedCustomerId===customer.customer_id;
+                  
+                  return (
+                  <Fragment key={customer.customer_id}>
+                  <tr className="text-black">
                     <td className="px-5 py-4">
-                      <div className="font-medium text-black">
-                        {customer.name || "—"}
-                      </div>
+                      <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={()=>
+                        setExpandedCustomerId(
+                          isExpanded ? null : customer.customer_id,
+                        )
+                      }
+                      className="font-medium text-black underline">
+                        {customer.name || "_"}
+                      </button>
+
                       <div className="text-sm text-black">
                         {customer.email || ""}
                       </div>
@@ -234,18 +245,55 @@ export function CustomerList() {
                       {customer.snapshot_date}
                     </td>
                   </tr>
-                ))
+
+                  {isExpanded && (
+                    <tr className="bg-blue-50">
+                      <td colSpan={5} className="px-5 py-4 text-black">
+                        <h2 className="font-semibold text-black">
+                          Détail du risque
+                        </h2>
+
+                        <p className="mt-1 text-black">
+                          Score : {formatScore(customer.score)} . Zone :{" "}
+                          {zoneLabel(customer.risk_level)} . Observation : {" "}
+                          {customer.snapshot_date}
+                        </p>
+
+                        {customer.model_version && (
+                          <p className="mt-1 text-sm text-black">
+                            Version du modèle : {customer.model_version}
+                          </p>
+                        )}
+
+                        <h3 className="mt-4 font-semibold text-black">
+                          Principales raisons
+                        </h3>
+
+                        {customer.top_reasons.length > 0 ? (
+                          <ul className="mt-2 list-inside list-disc space-y-1">
+                            {customer.top_reasons.map((reason, index)=> (
+                              <li key={`${reason.feature}-${index}`} className="text-black">
+                                {reason.message}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-black">Aucune raison détaillée disponible pour ce client.</p>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  );
+                })
               ) : (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-10 text-center text-black"
-                  >
-                    Aucun client trouvé.
+                  <td colSpan={5} className="px-5 py-10 text-center text-black">
+                    Aucun client à afficher.
                   </td>
                 </tr>
               )}
-            </tbody>
+                </tbody>
           </table>
         </div>
 

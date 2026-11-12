@@ -20,3 +20,14 @@ export interface ImportBatch {
   created_at: string;
   completed_at: string | null;
 }
+
+//historique d'import
+export interface ImportBatchSummary {
+  import_batch_id: number;
+  filename: string;
+  status: string;
+  total_rows: number;
+  imported_rows: number;
+  error_rows: number;
+  created_at: string;
+}

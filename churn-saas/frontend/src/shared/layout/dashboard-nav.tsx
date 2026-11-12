@@ -7,6 +7,7 @@ import {useAuth} from "@/features/auth/context/auth-context";
 const links = [
     {href: "/dashboard/customers", label: "Clients"},
     {href: "/dashboard/imports", label: "Importer un CSV"},
+    { href: "/dashboard/imports/history", label: "Historique des imports" },
 ]
 
 export function DashboardNav() {

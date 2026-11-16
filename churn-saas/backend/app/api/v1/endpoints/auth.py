@@ -1,19 +1,26 @@
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
-import secrets
-from datetime import timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
 from app.config import settings
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models import Organization, User, RiskSettings
+from app.models import Organization, User, RiskSettings,  PasswordResetToken
 from app.schemas.auth import LoginRequest, Token
 from app.schemas.user import UserCreate, UserRead
+
+import hashlib
+
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    PasswordResetMessage,
+    ResetPasswordRequest,
+)
+from app.services.email_service import send_password_reset_email
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -113,9 +120,130 @@ def read_current_user(current_user: User = Depends(get_current_active_user)) -> 
     #Profil User
     return current_user
 
+#forget password------------------
+
+RESET_TOKEN_TTL_MINUTES = 30
+
+GENERIC_RESET_MESSAGE = (
+    "Si un compte correspond à cette adresse, un lien de réinitialisation "
+    "va être envoyé."
+)
 
 
+@router.post(
+    "/forgot-password",
+    response_model=PasswordResetMessage,
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    email = str(payload.email).strip().lower()
+    user = db.query(User).filter(User.email == email).first()
 
+    # Réponse identique pour une adresse inconnue ou connue :
+    # on ne révèle pas si un compte existe.
+    if not user or not user.is_active:
+        return {"message": GENERIC_RESET_MESSAGE}
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=RESET_TOKEN_TTL_MINUTES
+    )
+
+    # Invalide les anciens jetons encore actifs.
+    (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        )
+        .delete(synchronize_session=False)
+    )
+
+    db.add(
+        PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+    )
+    db.commit()
+
+    reset_url = (
+        f"{settings.frontend_url.rstrip('/')}"
+        f"/auth/reset-password?token={raw_token}"
+    )
+
+    # L'envoi se fait après la réponse HTTP ; le jeton n'est jamais renvoyé
+    # dans la réponse API.
+    background_tasks.add_task(
+        send_password_reset_email,
+        user.email,
+        reset_url,
+    )
+
+    return {"message": GENERIC_RESET_MESSAGE}
+
+
+@router.post(
+    "/reset-password",
+    response_model=PasswordResetMessage,
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
+
+    reset_record = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > now,
+        )
+        .first()
+    )
+
+    if not reset_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le lien de réinitialisation est invalide ou a expiré.",
+        )
+
+    user = db.query(User).filter(User.id == reset_record.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le lien de réinitialisation est invalide ou a expiré.",
+        )
+
+    user.hashed_password = get_password_hash(payload.new_password)
+    reset_record.used_at = now
+
+    # Invalide aussi tout autre jeton de réinitialisation actif du compte.
+    (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.id != reset_record.id,
+            PasswordResetToken.used_at.is_(None),
+        )
+        .update(
+            {PasswordResetToken.used_at: now},
+            synchronize_session=False,
+        )
+    )
+
+    db.commit()
+
+    return {
+        "message": "Le mot de passe a été réinitialisé. Tu peux te connecter."
+    }
 
 
     

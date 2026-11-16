@@ -31,3 +31,19 @@ export interface ImportBatchSummary {
   error_rows: number;
   created_at: string;
 }
+
+export interface ImportPreviewField {
+  field: string;
+  required: boolean;
+  mapped_to: string | null;
+}
+
+export interface ImportPreview {
+  csv_columns: string[];
+  ignored_columns: string[];
+  fields: ImportPreviewField[];
+  sample_rows: Array<Record<string, string>>;
+  unknown_contract_values: string[];
+  problems: string[];
+  confirmed: boolean;
+}

@@ -13,7 +13,17 @@ class Settings(BaseSettings):
     ml_src_dir: Path = ROOT_DIR / "ml" / "src"  # dossier du code ML
     cors_origins: str = "http://localhost:3000"
 
+    frontend_url: str = "http://localhost:3000"
+
+    smtp_host: str = "smtp-relay.brevo.com"
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "ChurnSight"
+
     model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+
 
 
 settings = Settings()

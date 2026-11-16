@@ -48,3 +48,53 @@ export async function getMeApi(token:string): Promise<User> {
     return response.json();
     
 }
+
+export async function requestPasswordReset(email: string): Promise<string> {
+  const response = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body.detail === "string"
+        ? body.detail
+        : "Impossible de demander la réinitialisation.",
+    );
+  }
+
+  return body.message;
+}
+
+export async function submitNewPassword(
+  token: string,
+  newPassword: string,
+): Promise<string> {
+  const response = await fetch(`${API_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body.detail === "string"
+        ? body.detail
+        : "Le lien est invalide ou expiré.",
+    );
+  }
+
+  return body.message;
+}

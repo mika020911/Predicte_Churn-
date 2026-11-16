@@ -80,6 +80,12 @@ export function LoginForm() {
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm font-medium text-blue-800 underline"
+          >
+            Mot de passe oublié ?
+        </Link>
         </form>
 
         <div className="text-center text-sm">

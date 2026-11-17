@@ -1,15 +1,68 @@
 import type { ImportBatch, ImportBatchSummary } from "../types";
+import type { ImportPreview } from "../types";
 
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+export async function previewCsv(
+  token:string,
+  file:File,
+):Promise<ImportPreview> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response =await fetch (`${API_URL}/imports/preview`, {
+      method:"POST",
+      headers:{
+        Authorization: `Bearer ${token}`,
+      },
+      body:formData,
+    });
+    if (!response.ok){
+      const body = await response.json().catch(()=> ({}));
+      throw new Error(
+        typeof body.detail === "string"
+        ? body.detail
+        : "Imposible de prévisualiser le fichier CSV."
+      );
+    }
+    return response.json();
+}
+
+export async function saveColumnMapping(
+  token:string,
+  mapping: Record<string, string | null>,
+):Promise<void> {
+  const response = await fetch(`${API_URL}/imports/mapping`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_mapping: mapping,
+      contract_values: {},
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof body.detail === "string"
+        ? body.detail
+        : "Impossible d’enregistrer le mapping.",
+    );
+  }
+}
+
 export async function uploadCsv(
   token: string,
   file: File,
+  mapping: Record<string, string | null>,
 ): Promise<ImportBatch> {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("mapping", JSON.stringify(mapping));
 
   const response = await fetch(`${API_URL}/imports/upload`, {
     method: "POST",

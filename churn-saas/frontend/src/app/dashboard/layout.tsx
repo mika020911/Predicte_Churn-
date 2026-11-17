@@ -1,15 +1,10 @@
 import type { ReactNode } from "react";
-import { DashboardNav } from "@/shared/layout/dashboard-nav";
+import { DashboardShell } from "@/shared/layout/dashboard-shell";
 
 export default function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return (
-    <>
-      <DashboardNav />
-      {children}
-    </>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }

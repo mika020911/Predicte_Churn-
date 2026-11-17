@@ -1,4 +1,4 @@
-customer_id,snapshot_date,tenure_months,contract_type,mrr_change_pct,support_tickets_30d,recency_days,frequency_trend_30d,engagement_breadth,payment_failures_90d
+id,daty,mois,contract,mrr_change_pct,support_tickets_30d,recency_days,frequency_trend_30d,engagement,payment_failures
 C00000,2024-03-01,15,mensuel,7.14,2,7,0.976,0.68,0
 C00001,2024-01-19,5,mensuel,4.85,1,10,0.914,0.792,0
 C00002,2024-06-18,22,mensuel,-1.62,2,1,0.887,0.749,1

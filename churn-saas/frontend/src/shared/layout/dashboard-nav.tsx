@@ -1,49 +1,134 @@
 "use client";
 
 import Link from "next/link";
-import {usePathname} from "next/navigation";
-import {useAuth} from "@/features/auth/context/auth-context";
+import { usePathname } from "next/navigation";
 
-const links = [
-    {href: "/dashboard/customers", label: "Clients"},
-    {href: "/dashboard/imports", label: "Importer un CSV"},
-    { href: "/dashboard/imports/history", label: "Historique des imports" },
-]
+const navItems = [
+  { href: "/dashboard", label: "Vue d’ensemble", icon: "/icons/maison.png" },
+  { href: "/dashboard/customers", label: "Clients", icon: "/icons/client.png" },
+  {
+    href: "/dashboard/imports",
+    label: "Importer des fichiers",
+    icon: "/icons/importation-de-fichiers.png",
+  },
+  {
+    href: "/dashboard/imports/history",
+    label: "Historique",
+    icon: "/icons/historique.png",
+  },
+];
 
-export function DashboardNav() {
-    const pathname = usePathname();
-    const {logout} = useAuth();
+type DashboardNavProps = {
+  mobileOpen: boolean;
+  onNavigate: () => void;
+};
+
+function isActive(href: string, pathname: string) {
+  if (href === "/dashboard") return pathname === href;
+
+  if (href === "/dashboard/imports") {
+    return (
+      pathname === href ||
+      (pathname.startsWith(`${href}/`) &&
+        !pathname.startsWith(`${href}/history`))
+    );
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function DashboardNav({
+  mobileOpen,
+  onNavigate,
+}: DashboardNavProps) {
+  const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-white px-6 py-4">
-      <div className="flex flex-wrap gap-3">
-        {links.map((link) => {
-          const active = pathname === link.href;
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          onClick={onNavigate}
+          className="fixed inset-0 z-40 bg-blue-950/40 lg:hidden"
+        />
+      )}
 
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={active ? "page" : undefined}
-              className={`rounded-md px-4 py-2 font-medium ${
-                active
-                  ? "bg-blue-700 text-white"
-                  : "bg-white text-black hover:bg-blue-50"
-              }`}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <button
-        type="button"
-        onClick={logout}
-        className="rounded-md border border-slate-400 px-4 py-2 font-medium text-black hover:bg-slate-100"
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col border-r border-blue-100 bg-white transition-transform duration-200 lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        Se déconnecter
-      </button>
-    </nav>
+        <div className="flex h-20 items-center gap-3 border-b border-blue-100 px-6">
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 font-bold text-white"
+          >
+            CS
+          </span>
+          <span className="text-xl font-bold text-black">ChurnSight</span>
+        </div>
+
+        <nav aria-label="Navigation principale" className="flex-1 space-y-2 p-4">
+          <p className="px-3 pb-2 pt-3 text-xs font-bold uppercase tracking-wider text-blue-900">
+            Espace de travail
+          </p>
+
+          {navItems.map((item) => {
+            const active = isActive(item.href, pathname);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                onClick={onNavigate}
+                className={`flex items-center gap-3 rounded-xl px-3 py-3 font-semibold transition ${
+                  active
+                    ? "bg-blue-100 text-black"
+                    : "text-black hover:bg-blue-50"
+                }`}
+              >
+                <img
+                  src={item.icon}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 object-contain"
+                />
+                <span>{item.label}</span>
+                {active && (
+                  <span
+                    aria-hidden="true"
+                    className="ml-auto h-2 w-2 rounded-full bg-blue-800"
+                  />
+                )}
+              </Link>
+            );
+          })}
+
+          {/* Paramètres : ajouter le lien quand /dashboard/settings existera. */}
+          <div
+            aria-disabled="true"
+            title="La page Paramètres sera disponible prochainement"
+            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-3 font-semibold text-black/50"
+          >
+            <img
+              src="/icons/parametres.png"
+              alt=""
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 object-contain opacity-50"
+            />
+            <span>Paramètres</span>
+            <span className="ml-auto text-xs">Bientôt</span>
+          </div>
+        </nav>
+
+        <div className="border-t border-blue-100 p-4">
+          <p className="px-3 text-xs leading-5 text-black">
+            Analyse et compréhension du risque client
+          </p>
+        </div>
+      </aside>
+    </>
   );
 }

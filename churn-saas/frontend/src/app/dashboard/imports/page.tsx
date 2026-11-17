@@ -1,5 +1,5 @@
-import { ImportForm } from "@/features/imports/components/import-form";
+import { ImportMappingForm } from "@/features/imports/components/import-mapping-form";
 
 export default function ImportsPage() {
-  return <ImportForm />;
+  return <ImportMappingForm />;
 }

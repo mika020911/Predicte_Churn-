@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.services.import_service import INTERNAL_FIELDS
+from app.services.import_service import INTERNAL_FIELDS, normalize
 
 
 class AnomalyReport(BaseModel):
@@ -42,6 +42,8 @@ class ImportBatchSummary(BaseModel):
 class ImportMappingIn(BaseModel):
     column_mapping: Dict[str, Optional[str]] = {}
     contract_values: Dict[str, Literal[0, 1]] = {}
+    # Plans classés du MOINS cher au PLUS cher. Liste complète : elle remplace le classement enregistré.
+    plan_order: List[str] = []
  
     @field_validator("column_mapping")
     @classmethod
@@ -50,3 +52,16 @@ class ImportMappingIn(BaseModel):
         if unknown:
             raise ValueError(f"Champs inconnus : {sorted(unknown)}")
         return value
+
+    @field_validator("plan_order")
+    @classmethod
+    def clean_plan_order(cls, value):
+        plans = [p.strip() for p in value]
+        if any(not p or len(p) > 100 for p in plans):
+            raise ValueError("Chaque plan doit contenir entre 1 et 100 caractères.")
+        if len(plans) > 50:
+            raise ValueError("50 plans au maximum.")
+        keys = [normalize(p) for p in plans]
+        if len(set(keys)) != len(keys):
+            raise ValueError("Un plan apparaît plusieurs fois dans le classement.")
+        return plans

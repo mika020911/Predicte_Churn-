@@ -44,6 +44,9 @@ export interface ImportPreview {
   fields: ImportPreviewField[];
   sample_rows: Array<Record<string, string>>;
   unknown_contract_values: string[];
+  plan_values: string[];
+  unknown_plan_values: string[];
+  proposed_plan_order: string[];
   problems: string[];
   confirmed: boolean;
 }

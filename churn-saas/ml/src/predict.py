@@ -71,6 +71,7 @@ def main():
         "tenure_months": 3, "contract_type": 0, "mrr_change_pct": -15.0,
         "support_tickets_30d": 4, "recency_days": 25, "frequency_trend_30d": 0.60,
         "engagement_breadth": 0.30, "payment_failures_90d": 2,
+        "plan_tier_rank": 0.0,
     }
     result = predictor.predict(client)
     print(f"\nScore : {result['score']:.0%}")

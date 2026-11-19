@@ -13,6 +13,7 @@ from app.schemas.imports import ImportBatchRead, ImportBatchSummary, ImportMappi
 from app.services.import_service import (
     build_csv_template,
     build_import_preview,
+    compute_plan_ranks,
     normalize,
     process_csv_import,
     validate_column_mapping,
@@ -77,7 +78,7 @@ def save_import_mapping(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Sauvegarde le mapping de l'organisation (colonnes et valeurs de contract_type)."""
+    """Sauvegarde le mapping de l'organisation (colonnes, valeurs de contract_type, classement des plans)."""
     org = db.get(Organization, current_user.organization_id)
  
     if body.column_mapping:
@@ -93,8 +94,16 @@ def save_import_mapping(
             **{normalize(k): v for k, v in body.contract_values.items()},
         }
  
+    if body.plan_order:
+        # Le classement reçu est complet : les rangs sont recalculés pour tous les plans
+        org.plan_mapping = compute_plan_ranks(body.plan_order)
+
     db.commit()
-    return {"column_mapping": org.column_mapping, "contract_mapping": org.contract_mapping}
+    return {
+        "column_mapping": org.column_mapping,
+        "contract_mapping": org.contract_mapping,
+        "plan_mapping": org.plan_mapping,
+    }
 
 #-----------------------------IMPORTS---------------------------------------------------
 

@@ -18,6 +18,8 @@ export function ImportMappingForm() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<Record<string, string | null>>({});
+  // Plans classés du moins cher (haut de la liste) au plus cher (bas de la liste)
+  const [planOrder, setPlanOrder] = useState<string[]>([]);
   const [batch, setBatch] = useState<ImportBatch | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [loadingImport, setLoadingImport] = useState(false);
@@ -29,6 +31,7 @@ export function ImportMappingForm() {
     setFile(selectedFile);
     setPreview(null);
     setMapping({});
+    setPlanOrder([]);
     setBatch(null);
     setError(null);
   }
@@ -57,6 +60,7 @@ export function ImportMappingForm() {
     try {
       const result = await previewCsv(token, file);
       setPreview(result);
+      setPlanOrder(result.proposed_plan_order);
 
       const initialMapping: Record<string, string | null> = {};
       for (const field of result.fields) {
@@ -74,11 +78,44 @@ export function ImportMappingForm() {
     }
   }
 
+  async function refreshPlans(nextMapping: Record<string, string | null>) {
+    // Le choix de la colonne « plan » a changé : on relit ses valeurs côté serveur
+    if (!token || !file) return;
+    try {
+      const result = await previewCsv(token, file, nextMapping);
+      setPreview(result);
+      setPlanOrder(result.proposed_plan_order);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de lire les plans du fichier.",
+      );
+    }
+  }
+
   function updateMapping(field: string, csvColumn: string) {
-    setMapping((current) => ({
-      ...current,
-      [field]: csvColumn || null,
-    }));
+    const nextMapping = { ...mapping, [field]: csvColumn || null };
+    setMapping(nextMapping);
+    setBatch(null);
+
+    if (field === "plan") {
+      if (csvColumn) {
+        void refreshPlans(nextMapping);
+      } else {
+        setPlanOrder([]);
+      }
+    }
+  }
+
+  function movePlan(index: number, direction: -1 | 1) {
+    setPlanOrder((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
     setBatch(null);
   }
 
@@ -108,6 +145,10 @@ export function ImportMappingForm() {
       );
     }
 
+    if (mapping.plan && planOrder.length === 0) {
+      problems.push("Classe tes plans du moins cher au plus cher.");
+    }
+
     return problems;
   }
 
@@ -129,7 +170,7 @@ export function ImportMappingForm() {
     setLoadingImport(true);
 
     try {
-      await saveColumnMapping(token, mapping);
+      await saveColumnMapping(token, mapping, mapping.plan ? planOrder : []);
       const result = await uploadCsv(token, file, mapping);
       setBatch(result);
     } catch (err) {
@@ -240,6 +281,67 @@ export function ImportMappingForm() {
               {preview.unknown_contract_values.join(", ")}. Elles pourront
               apparaître comme anomalies à l’import.
             </p>
+          )}
+
+          {mapping.plan && planOrder.length > 0 && (
+            <div className="space-y-3 rounded-md border border-slate-300 p-4">
+              <div>
+                <h3 className="font-semibold text-black">
+                  Classement des plans
+                </h3>
+                <p className="mt-1 text-black">
+                  Classe les plans du moins cher (en haut) au plus cher (en
+                  bas). Le modèle utilise ce rang, jamais le nom du plan.
+                </p>
+              </div>
+
+              {preview.unknown_plan_values.length > 0 && (
+                <p className="rounded-md border border-orange-300 bg-orange-50 p-3 text-orange-950">
+                  Nouveaux plans à placer :{" "}
+                  {preview.unknown_plan_values.join(", ")}.
+                </p>
+              )}
+
+              <ol className="space-y-2">
+                {planOrder.map((plan, index) => (
+                  <li
+                    key={plan}
+                    className="flex items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-2 text-black"
+                  >
+                    <span>
+                      {index + 1}. {plan}
+                      <span className="ml-2 text-sm text-slate-700">
+                        (rang{" "}
+                        {planOrder.length > 1
+                          ? (index / (planOrder.length - 1)).toFixed(2)
+                          : "0.50"}
+                        )
+                      </span>
+                    </span>
+                    <span className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => movePlan(index, -1)}
+                        disabled={index === 0}
+                        aria-label={`Monter le plan ${plan}`}
+                        className="rounded-md border border-slate-400 px-2 py-1 disabled:opacity-40"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePlan(index, 1)}
+                        disabled={index === planOrder.length - 1}
+                        aria-label={`Descendre le plan ${plan}`}
+                        className="rounded-md border border-slate-400 px-2 py-1 disabled:opacity-40"
+                      >
+                        ↓
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
 
           {preview.sample_rows.length > 0 && (

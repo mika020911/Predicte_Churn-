@@ -18,9 +18,11 @@ needs_model = pytest.mark.skipif(
 )
 
 SAFE = dict(tenure_months=60, contract_type=1, mrr_change_pct=8.0, support_tickets_30d=0,
-            recency_days=1, frequency_trend_30d=1.2, engagement_breadth=0.92, payment_failures_90d=0)
+            recency_days=1, frequency_trend_30d=1.2, engagement_breadth=0.92, payment_failures_90d=0,
+            plan_tier_rank=1.0)
 RISKY = dict(tenure_months=3, contract_type=0, mrr_change_pct=-15.0, support_tickets_30d=4,
-             recency_days=25, frequency_trend_30d=0.6, engagement_breadth=0.3, payment_failures_90d=2)
+             recency_days=25, frequency_trend_30d=0.6, engagement_breadth=0.3, payment_failures_90d=2,
+             plan_tier_rank=0.0)
 
 
 # ------------------------------------------------------------------ outils

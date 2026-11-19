@@ -22,11 +22,15 @@ REQUIRED_COLUMNS = [
     "engagement_breadth",
     "payment_failures_90d",
 ]
-OPTIONAL_COLUMNS = ["customer_name", "customer_email"]
+OPTIONAL_COLUMNS = ["customer_name", "customer_email", "plan"]
 INTERNAL_FIELDS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
 
 FLOAT_FIELDS = ("mrr_change_pct", "frequency_trend_30d", "engagement_breadth")
 INT_FIELDS = ("tenure_months", "support_tickets_30d", "recency_days", "payment_failures_90d")
+
+# Doit rester égal à NEUTRAL_PLAN_TIER_RANK de ml/src/config.py (vérifié par un test).
+# Utilisé quand le CSV n'a pas de colonne « plan » ou que l'entreprise n'a qu'un seul plan.
+NEUTRAL_PLAN_TIER_RANK = 0.5
 
 DEFAULT_CONTRACT_MAP = {
     "0": 0, "mensuel": 0, "monthly": 0,
@@ -52,6 +56,38 @@ def build_contract_map(org_mapping: dict | None) -> dict:
     return {**DEFAULT_CONTRACT_MAP, **custom}  # le mapping du client est prioritaire
  
  
+def compute_plan_ranks(ordered_plans: list[str]) -> dict[str, float]:
+    """Plans classés du moins cher au plus cher -> {plan normalisé: rang entre 0 et 1}.
+
+    Exemple : ["Standard", "Pro", "Max Ultra"] -> {"standard": 0.0, "pro": 0.5, "max ultra": 1.0}
+    Un seul plan n'apporte aucune information de gamme : rang neutre.
+    """
+    keys: list[str] = []
+    for plan in ordered_plans:
+        key = normalize(plan)
+        if key and key not in keys:
+            keys.append(key)
+    if len(keys) == 1:
+        return {keys[0]: NEUTRAL_PLAN_TIER_RANK}
+    last = len(keys) - 1
+    return {key: round(i / last, 3) for i, key in enumerate(keys)}
+
+
+def plan_order_from_ranks(plan_ranks: dict | None) -> list[str]:
+    """Classement enregistré (du moins cher au plus cher), reconstruit à partir des rangs."""
+    return [plan for plan, _ in sorted((plan_ranks or {}).items(), key=lambda item: item[1])]
+
+
+def distinct_plan_labels(series: pd.Series) -> list[str]:
+    """Plans distincts du CSV (dédoublonnés sans tenir compte de la casse ni des accents), dans l'ordre d'apparition."""
+    labels: dict[str, str] = {}
+    for value in series.dropna():
+        label = str(value).strip()
+        if label and normalize(label) not in labels:
+            labels[normalize(label)] = label
+    return list(labels.values())
+
+
 def to_int(value) -> int:
     """Convertit '12' ou '12.0' en 12, refuse '3.7' au lieu de le tronquer."""
     number = float(value)
@@ -94,8 +130,8 @@ def build_csv_template() -> str:
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(REQUIRED_COLUMNS + OPTIONAL_COLUMNS)
     writer.writerow(["C00001", "2026-01-15", 12, "mensuel", 2.5, 1, 5, 0.95, 0.7, 0,
-                     "Client exemple", "client@exemple.com"])
-    writer.writerow(["C00002", "2026-01-15", 36, "annuel", -1.2, 0, 2, 1.05, 0.9, 0, "", ""])
+                     "Client exemple", "client@exemple.com", "standard"])
+    writer.writerow(["C00002", "2026-01-15", 36, "annuel", -1.2, 0, 2, 1.05, 0.9, 0, "", "", "pro"])
     return buffer.getvalue()
  
  
@@ -109,7 +145,9 @@ def suggest_column_mapping(csv_columns: list[str], saved: dict | None) -> dict:
     by_norm = {normalize(c): c for c in csv_columns}
     result = {}
     for field in INTERNAL_FIELDS:
-        if saved.get(field) in csv_columns:
+        if field in saved and saved[field] is None:  # « Ne pas associer » choisi explicitement
+            result[field] = None
+        elif saved.get(field) in csv_columns:
             result[field] = saved[field]
         else:
             result[field] = by_norm.get(normalize(field))
@@ -149,6 +187,17 @@ def build_import_preview(file_bytes: bytes, org: Organization, sent_mapping: dic
             {contract_key(v) for v in df[contract_col].dropna()} - set(contract_map) - {""}
         )
  
+    # Plans : valeurs du CSV, celles pas encore classées, et classement à proposer à l'analyste
+    plan_values: list[str] = []
+    unknown_plans: list[str] = []
+    proposed_order = plan_order_from_ranks(org.plan_mapping)
+    plan_col = mapping.get("plan")
+    if plan_col:
+        plan_values = distinct_plan_labels(df[plan_col])
+        saved_plans = set(org.plan_mapping or {})
+        unknown_plans = [p for p in plan_values if normalize(p) not in saved_plans]
+        proposed_order += unknown_plans  # les nouveaux plans arrivent en fin de liste, à replacer
+
     used_columns = {c for c in mapping.values() if c}
     return {
         "csv_columns": list(df.columns),
@@ -160,6 +209,9 @@ def build_import_preview(file_bytes: bytes, org: Organization, sent_mapping: dic
         ],
         "sample_rows": df.head(5).fillna("").to_dict("records"),
         "unknown_contract_values": unknown,
+        "plan_values": plan_values,
+        "unknown_plan_values": unknown_plans,
+        "proposed_plan_order": proposed_order if plan_col else [],
         "problems": validate_column_mapping(mapping),
         # True si l'organisation a déjà confirmé un mapping complet pour ce fichier
         "confirmed": all(saved.get(f) in df.columns for f in REQUIRED_COLUMNS),
@@ -211,6 +263,21 @@ def process_csv_import(
  
         df = apply_column_mapping(df, mapping)
         contract_map = build_contract_map(org.contract_mapping)
+
+        # Plans : tous doivent être classés avant l'import, sinon les rangs seraient faux
+        plan_ranks = {k: float(v) for k, v in (org.plan_mapping or {}).items()}
+        has_plan_column = "plan" in df.columns
+        if has_plan_column:
+            unranked = [p for p in distinct_plan_labels(df["plan"]) if normalize(p) not in plan_ranks]
+            if unranked:
+                batch.status = "FAILED"
+                batch.error_message = (
+                    f"Plans non classés : {', '.join(unranked)}. "
+                    "Classe-les du moins cher au plus cher avant l'import."
+                )
+                batch.completed_at = datetime.now(timezone.utc)
+                db.commit()
+                return batch
  
         anomalies: list[dict] = []
         imported_count = 0
@@ -272,6 +339,13 @@ def process_csv_import(
                         f"contract_type non reconnu : '{raw_contract}' "
                         "(attendu : mensuel/annuel, 0/1 ou une valeur du mapping)"
                     )
+                if has_plan_column:
+                    raw_plan = row["plan"]
+                    if pd.isna(raw_plan) or not str(raw_plan).strip():
+                        raise ValueError("plan manquant")
+                    plan_rank = plan_ranks[normalize(raw_plan)]
+                else:
+                    plan_rank = NEUTRAL_PLAN_TIER_RANK
                 floats = {k: parse_number(row, k, to_float) for k in FLOAT_FIELDS}
                 ints = {k: parse_number(row, k, to_int) for k in INT_FIELDS}
             except (ValueError, TypeError, OverflowError) as e:
@@ -314,6 +388,7 @@ def process_csv_import(
                 snapshot_date=snapshot_dt,
                 # str() : fonctionne que la colonne soit String ("0"/"1") ou Integer
                 contract_type=str(contract_value),
+                plan_tier_rank=plan_rank,
                 **floats,
                 **ints,
             ))

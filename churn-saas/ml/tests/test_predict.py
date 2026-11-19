@@ -10,11 +10,13 @@ SAFE_CLIENT = {
     "tenure_months": 60, "contract_type": 1, "mrr_change_pct": 8.0,
     "support_tickets_30d": 0, "recency_days": 1, "frequency_trend_30d": 1.2,
     "engagement_breadth": 0.92, "payment_failures_90d": 0,
+    "plan_tier_rank": 1.0,
 }
 RISKY_CLIENT = {
     "tenure_months": 3, "contract_type": 0, "mrr_change_pct": -15.0,
     "support_tickets_30d": 4, "recency_days": 25, "frequency_trend_30d": 0.60,
     "engagement_breadth": 0.30, "payment_failures_90d": 2,
+    "plan_tier_rank": 0.0,
 }
 
 needs_model = pytest.mark.skipif(
@@ -110,3 +112,12 @@ def test_temporal_split_has_no_overlap_and_loses_no_row():
     assert train[DATE_COLUMN].max() < val[DATE_COLUMN].min()
     assert val[DATE_COLUMN].max() < test[DATE_COLUMN].min()
     assert len(train) + len(val) + len(test) == len(df)
+
+
+@needs_data
+def test_plan_tier_rank_is_between_0_and_1_in_generated_data():
+    from preprocess import load_data
+
+    ranks = load_data()["plan_tier_rank"]
+    assert ranks.between(0.0, 1.0).all()
+    assert ranks.nunique() > 1  # la colonne n'est pas constante

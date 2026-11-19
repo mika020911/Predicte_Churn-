@@ -22,7 +22,7 @@ def get_predictor():
 
 
 def feature_columns() -> list[str]:
-    """Les 8 colonnes attendues par le modèle, dans le bon ordre."""
+    """Les colonnes attendues par le modèle, dans le bon ordre."""
     _ensure_ml_on_path()
     from config import FEATURE_COLUMNS
     return list(FEATURE_COLUMNS)

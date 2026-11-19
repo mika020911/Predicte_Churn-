@@ -8,9 +8,13 @@ const API_URL =
 export async function previewCsv(
   token:string,
   file:File,
+  mapping?: Record<string, string | null>,
 ):Promise<ImportPreview> {
     const formData = new FormData();
     formData.append("file", file);
+    if (mapping) {
+      formData.append("mapping", JSON.stringify(mapping));
+    }
 
     const response =await fetch (`${API_URL}/imports/preview`, {
       method:"POST",
@@ -33,6 +37,7 @@ export async function previewCsv(
 export async function saveColumnMapping(
   token:string,
   mapping: Record<string, string | null>,
+  planOrder: string[] = [],
 ):Promise<void> {
   const response = await fetch(`${API_URL}/imports/mapping`, {
     method: "PUT",
@@ -43,6 +48,7 @@ export async function saveColumnMapping(
     body: JSON.stringify({
       column_mapping: mapping,
       contract_values: {},
+      plan_order: planOrder,
     }),
   });
   if (!response.ok) {

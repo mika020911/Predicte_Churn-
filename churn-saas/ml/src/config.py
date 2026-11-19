@@ -27,7 +27,11 @@ FEATURE_COLUMNS = [
     "frequency_trend_30d",
     "engagement_breadth",
     "payment_failures_90d",
+    "plan_tier_rank",  # rang de gamme du plan dans l'offre de l'entreprise : 0 (entrée) -> 1 (haut), 0.5 si inconnu
 ]
+
+# Valeur neutre de plan_tier_rank : entreprise à plan unique, ou colonne « plan » non fournie
+NEUTRAL_PLAN_TIER_RANK = 0.5
 
 TARGET_COLUMN = "churn"
 DATE_COLUMN = "snapshot_date"

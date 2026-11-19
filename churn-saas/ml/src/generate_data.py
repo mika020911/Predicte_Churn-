@@ -2,9 +2,13 @@ import numpy as np
 import pandas as pd
 
 from config import (
-    CHURN_RATE, ID_COLUMN, N_SAMPLES, NOISE_STD, NONLINEAR_STRENGTH,
-    RANDOM_STATE, RAW_DATA_PATH, SIGNAL_STRENGTH,
+    CHURN_RATE, ID_COLUMN, N_SAMPLES, NEUTRAL_PLAN_TIER_RANK, NOISE_STD,
+    NONLINEAR_STRENGTH, RANDOM_STATE, RAW_DATA_PATH, SIGNAL_STRENGTH,
 )
+
+# Nombre de plans du catalogue de chaque entreprise fictive (1 = plan unique).
+# Le modèle ne voit jamais le nom du plan, seulement son rang relatif dans le catalogue.
+PLAN_CATALOG_SIZES = [1, 2, 3, 4, 4]
 IMPORT_TEST_PATH = RAW_DATA_PATH.with_name("churn_import_test.csv")
 
 
@@ -17,6 +21,24 @@ def find_bias(score, target, lo=-10.0, hi=10.0, iters=50):
         else:
             hi = mid
     return (lo + hi) / 2
+
+
+def draw_plan_tier_rank(rng, n_samples):
+    """Rang de gamme (0 = offre d'entrée, 1 = offre la plus haute) dans le catalogue du client.
+
+    Les offres d'entrée sont plus fréquentes que les offres haut de gamme.
+    Un catalogue à plan unique n'apporte aucune information : rang neutre.
+    """
+    catalog_sizes = rng.choice(PLAN_CATALOG_SIZES, size=n_samples)
+    ranks = np.empty(n_samples)
+    for i, size in enumerate(catalog_sizes):
+        if size == 1:
+            ranks[i] = NEUTRAL_PLAN_TIER_RANK
+            continue
+        weights = np.linspace(1.0, 0.3, size)
+        position = rng.choice(size, p=weights / weights.sum())
+        ranks[i] = position / (size - 1)
+    return np.round(ranks, 3)
 
 
 def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RANDOM_STATE):
@@ -65,6 +87,9 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         rng.integers(0, 180, size=n_samples), unit="D"
     )
 
+    # Rang de gamme du plan (tiré ici pour ne pas décaler les colonnes précédentes)
+    plan_tier_rank = draw_plan_tier_rank(rng, n_samples)
+
     signal = (
         -0.03 * tenure_months
         - 0.8 * contract_type
@@ -74,6 +99,7 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
         - 1.5 * (frequency_trend_30d - 1)
         - 1.2 * engagement_breadth
         + 0.6 * payment_failures_90d
+        - 0.6 * plan_tier_rank  # les offres haut de gamme partent un peu moins
         
         # effets non linéaires : seuils et interactions
         + NONLINEAR_STRENGTH * (
@@ -99,6 +125,7 @@ def generate_churn_dataset(n_samples=N_SAMPLES, churn_rate=CHURN_RATE, seed=RAND
             "frequency_trend_30d": frequency_trend_30d,
             "engagement_breadth": engagement_breadth,
             "payment_failures_90d": payment_failures_90d,
+            "plan_tier_rank": plan_tier_rank,
             "churn": churn,
         }
     )
@@ -115,6 +142,13 @@ def main():
 
     df_import = df.drop(columns=["churn"]).copy()
     df_import["contract_type"] = df_import["contract_type"].map({0: "mensuel", 1: "annuel"})
+    # Fichier d'import : on remplace le rang par un nom de plan, comme le ferait un vrai client
+    df_import["plan"] = np.select(
+        [df_import["plan_tier_rank"] < 0.34, df_import["plan_tier_rank"] < 0.67],
+        ["standard", "pro"],
+        default="premium",
+    )
+    df_import = df_import.drop(columns=["plan_tier_rank"])
     df_import.head(200).to_csv(IMPORT_TEST_PATH, index=False)
     print(f"Fichier de test d'import : {IMPORT_TEST_PATH}")
 

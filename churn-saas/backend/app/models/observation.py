@@ -24,6 +24,8 @@ class Observation(Base):
     frequency_trend_30d = Column(Float, nullable=False)
     engagement_breadth = Column(Float, nullable=False)
     payment_failures_90d = Column(Integer, nullable=False)
+    # Rang de gamme du plan dans l'offre de l'entreprise : 0 = entrée, 1 = haut de gamme, 0.5 = inconnu
+    plan_tier_rank = Column(Float, nullable=False, default=0.5, server_default="0.5")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

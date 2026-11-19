@@ -18,6 +18,7 @@ class Organization(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     column_mapping = Column(JSON, nullable=True, default=dict)    # champ interne -> colonne du CSV
     contract_mapping = Column(JSON, nullable=True, default=dict)  # valeur du CSV -> 0 ou 1
+    plan_mapping = Column(JSON, nullable=True, default=dict)      # plan (normalisé) -> rang de gamme entre 0 et 1
 
     users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
     customers = relationship("Customer", back_populates="organization", cascade="all, delete-orphan")

@@ -1,6 +1,6 @@
 """Explication des prédictions avec SHAP : pourquoi ce client est à risque ?
 
-SHAP donne, pour chaque client, la contribution de chacune des 8 colonnes au score.
+SHAP donne, pour chaque client, la contribution de chacune des colonnes au score.
   - contribution positive  -> la colonne AUGMENTE le risque de départ ;
   - contribution négative  -> la colonne DIMINUE le risque.
 On garde les N colonnes qui augmentent le plus le risque et on les traduit en phrases.
@@ -33,6 +33,10 @@ REASON_MESSAGES = {
     ),
     "engagement_breadth": lambda v: f"Utilise seulement {v * 100:.0f}% des fonctionnalités disponibles",
     "payment_failures_90d": lambda v: f"{v:.0f} échec(s) de paiement sur 90 jours",
+    "plan_tier_rank": lambda v: (
+        "Offre d'entrée de gamme, moins engageante que les offres supérieures" if v < 0.34
+        else "Offre de gamme intermédiaire, moins ancrée que le haut de gamme"
+    ),
 }
 
 
@@ -44,7 +48,7 @@ class ChurnExplainer:
         self.explainer = shap.TreeExplainer(self.model)
 
     def shap_values(self, X: pd.DataFrame) -> np.ndarray:
-        """Contributions SHAP, un tableau (nb_clients, 8) pour la classe « part »."""
+        """Contributions SHAP, un tableau (nb_clients, nb_colonnes) pour la classe « part »."""
         values = self.explainer.shap_values(X[FEATURE_COLUMNS])
         if isinstance(values, list):      # anciens formats : une liste par classe
             values = values[1]

@@ -22,7 +22,18 @@ class UserBase(BaseModel):
     full_name: str
     role: str ="admin"
 
+class RegisterRequest(BaseModel):
+    """Inscription publique : le rôle n'est jamais fourni par le client."""
+
+    email: EmailStr
+    password: str
+    full_name: str
+    organization_name: str
+
+
 class UserCreate(UserBase):
+    """Création interne d'un utilisateur (usage serveur uniquement)."""
+
     password: str
     organization_name: Optional[str] = None
 

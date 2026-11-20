@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/features/auth/context/auth-context";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Vue d’ensemble", icon: "/icons/maison.png" },
   { href: "/dashboard/customers", label: "Clients", icon: "/icons/client.png" },
   {
@@ -47,6 +55,10 @@ export function DashboardNav({
   onNavigate,
 }: DashboardNavProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const visibleItems = navItems.filter(
+    (item) => !item.adminOnly || user?.role === "admin",
+  );
 
   return (
     <>
@@ -79,7 +91,7 @@ export function DashboardNav({
             Espace de travail
           </p>
 
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = isActive(item.href, pathname);
 
             return (

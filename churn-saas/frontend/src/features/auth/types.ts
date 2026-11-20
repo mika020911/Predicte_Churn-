@@ -1,9 +1,11 @@
+export type Role = "admin" | "analyst" | "viewer";
+
 export interface User{
     id:number;
     organization_id:number;
     email:string;
     full_name:string;
-    role:string;
+    role:Role;
     is_active:boolean;
     created_at:string;
     updated_at:string;

@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
  
-from app.api.deps import get_current_active_user, get_db
+from app.api.deps import get_current_active_user, get_db, require_roles
+from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
 from app.models import ImportBatch, Organization, User
 from app.schemas.imports import ImportBatchRead, ImportBatchSummary, ImportMappingIn
 from app.services.import_service import (
@@ -56,7 +57,7 @@ async def preview_csv_import(
     file: UploadFile = File(...),
     mapping: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
 ):
     """Colonnes du CSV, suggestions de mapping, valeurs inconnues et colonnes ignorées.
  
@@ -76,7 +77,7 @@ async def preview_csv_import(
 def save_import_mapping(
     body: ImportMappingIn,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
 ):
     """Sauvegarde le mapping de l'organisation (colonnes, valeurs de contract_type, classement des plans)."""
     org = db.get(Organization, current_user.organization_id)
@@ -114,7 +115,7 @@ async def upload_csv_import(
     file: UploadFile = File(...),
     mapping: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
 ):
     #Importe un CSV : applique le mapping, valide, crée les clients et enregistre les snapshots
     file_bytes = await _read_csv_upload(file)

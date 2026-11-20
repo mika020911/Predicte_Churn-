@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.security import ALGORITHM
 from app.database import SessionLocal
+from app.core.roles import ROLE_ADMIN
 from app.models import User
 from app.schemas.auth import TokenPayload
 
@@ -57,9 +58,24 @@ def get_current_active_user(
         
     return current_user
 
-def get_current_admin_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    if not current_user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Droits administrateur requis")
-    return current_user
+def require_roles(*roles: str):
+    """Fabrique une dépendance exigeant l'un des rôles fournis.
+
+    S'appuie sur get_current_active_user : un compte ou une organisation
+    désactivés sont refusés avant la vérification du rôle. Une valeur de rôle
+    inconnue ne correspond à aucun rôle autorisé (fail-closed).
+    """
+    def dependency(
+        current_user: User = Depends(get_current_active_user),
+    ) -> User:
+        if current_user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Droits insuffisants pour cette action",
+            )
+        return current_user
+
+    return dependency
+
+
+get_current_admin_user = require_roles(ROLE_ADMIN)

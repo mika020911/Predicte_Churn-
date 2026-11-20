@@ -10,7 +10,7 @@ from app.config import settings
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models import Organization, User, RiskSettings,  PasswordResetToken
 from app.schemas.auth import LoginRequest, Token
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import RegisterRequest, UserRead
 
 import hashlib
 
@@ -25,7 +25,7 @@ from app.services.email_service import send_password_reset_email
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserRead, status_code = status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Un compte existe déjà avec cet email")

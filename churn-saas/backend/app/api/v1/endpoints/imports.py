@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
  
 from app.api.deps import get_current_active_user, get_db, require_roles
+from app.config import settings
 from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
 from app.models import ImportBatch, Organization, User
 from app.schemas.imports import ImportBatchRead, ImportBatchSummary, ImportMappingIn
@@ -35,12 +36,24 @@ def _parse_mapping(raw:Optional[dict]) -> dict:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Le mapping doit être un objet JSON.")
     return data
 
-async def _read_csv_upload(file: UploadFile) -> bytes:
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Seuls les fichiers .csv sont autorisés.")
+ALLOWED_UPLOAD_SUFFIXES = (".csv", ".xlsx")
+
+
+async def _read_tabular_upload(file: UploadFile) -> bytes:
+    if not (file.filename or "").lower().endswith(ALLOWED_UPLOAD_SUFFIXES):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Seuls les fichiers .csv et .xlsx sont autorisés.",
+        )
     file_bytes = await file.read()
     if len(file_bytes) == 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Le fichier téléversé est vide.")
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"Fichier trop volumineux : {settings.max_upload_size_mb} Mo maximum.",
+        )
     return file_bytes
 
 @router.get("/template")
@@ -64,12 +77,18 @@ async def preview_csv_import(
     N'écrit rien en base. La colonne `churn` (étiquette d'entraînement) est ignorée : le modèle
     est entraîné hors de la base (approche 1).
     """
-    file_bytes = await _read_csv_upload(file)
+    file_bytes = await _read_tabular_upload(file)
     org = db.get(Organization, current_user.organization_id)
     try:
-        return await run_in_threadpool(build_import_preview, file_bytes, org, _parse_mapping(mapping))
-    except ValueError as e:  # CSV illisible (ParserError, EmptyDataError...)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Fichier CSV illisible : {e}")
+        return await run_in_threadpool(
+            build_import_preview,
+            file_bytes,
+            file.filename or "",
+            org,
+            _parse_mapping(mapping),
+        )
+    except ValueError as e:  # fichier illisible (ParserError, Excel corrompu...)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Fichier illisible : {e}")
     
 #---------------------------MAPPING---------------------------------------------------
 
@@ -118,7 +137,7 @@ async def upload_csv_import(
     current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
 ):
     #Importe un CSV : applique le mapping, valide, crée les clients et enregistre les snapshots
-    file_bytes = await _read_csv_upload(file)
+    file_bytes = await _read_tabular_upload(file)
     batch = await run_in_threadpool(
         process_csv_import,
         file_bytes=file_bytes,
@@ -129,7 +148,7 @@ async def upload_csv_import(
     )
 
     # Prédictions : si elles échouent, l'import reste valide et on le signale
-    if batch.status == "COMPLETED":
+    if batch.status == "completed":
         try:
             await run_in_threadpool(
                 generate_predictions_for_batch, db, batch.id, current_user.organization_id

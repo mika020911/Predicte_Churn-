@@ -23,7 +23,7 @@ def add_prediction(db, organization_id, external_id, score, risk_level):
     db.add(customer)
     db.flush()
     batch = ImportBatch(organization_id=organization_id, filename="t.csv", source="csv_upload",
-                        status="COMPLETED", total_rows=1, imported_rows=1, error_rows=0, anomaly_report=[])
+                        status="completed", total_rows=1, imported_rows=1, error_rows=0, anomaly_report=[])
     db.add(batch)
     db.flush()
     obs = Observation(customer_id=customer.id, import_batch_id=batch.id, snapshot_date=date(2026, 11, 1),

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
 
     frontend_url: str = "http://localhost:3000"
 
+    # Taille maximale d'un fichier d'import (CSV ou XLSX), en mégaoctets.
+    max_upload_size_mb: int = 20
+
     smtp_host: str = "smtp-relay.brevo.com"
     smtp_port: int = 587
     smtp_user: str | None = None

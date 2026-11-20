@@ -15,7 +15,7 @@ class AnomalyReport(BaseModel):
 class ImportBatchRead(BaseModel):
     id: int
     organization_id: int
-    uploaded_by_user_id: int
+    uploaded_by_user_id: Optional[int] = None
     filename: str
     source: str
     status: str

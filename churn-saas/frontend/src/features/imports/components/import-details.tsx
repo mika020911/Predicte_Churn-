@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { getImportDetails } from "../api/imports-api";
 import type { ImportBatch } from "../types";
+import { importStatusLabel } from "../status";
 
 export function ImportDetails() {
   const params = useParams<{ id: string }>();
@@ -88,7 +89,7 @@ export function ImportDetails() {
       <header>
         <h1 className="text-3xl font-bold text-black">Rapport d’import</h1>
         <p className="mt-2 text-black">
-          Fichier : {batch.filename} — statut : {batch.status}
+          Fichier : {batch.filename} — statut : {importStatusLabel(batch.status)}
         </p>
       </header>
 

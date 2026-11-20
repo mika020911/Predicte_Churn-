@@ -8,7 +8,7 @@ export interface ImportAnomaly {
 export interface ImportBatch {
   id: number;
   organization_id: number;
-  uploaded_by_user_id: number;
+  uploaded_by_user_id: number | null;
   filename: string;
   source: string;
   status: string;

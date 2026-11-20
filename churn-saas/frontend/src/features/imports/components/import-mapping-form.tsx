@@ -11,6 +11,7 @@ import type {
 ImportPreview,
 ImportBatch,
 } from "../types"
+import { importStatusLabel } from "../status";
 
 export function ImportMappingForm() {
   const { token } = useAuth();
@@ -46,12 +47,12 @@ export function ImportMappingForm() {
     }
 
     if (!file) {
-      setError("Sélectionne un fichier CSV.");
+      setError("Sélectionne un fichier CSV ou Excel.");
       return;
     }
 
-    if (!file.name.toLowerCase().endsWith(".csv")) {
-      setError("Le fichier doit avoir l’extension .csv.");
+    if (!/\.(csv|xlsx)$/i.test(file.name)) {
+      setError("Le fichier doit avoir l’extension .csv ou .xlsx.");
       return;
     }
 
@@ -187,21 +188,21 @@ export function ImportMappingForm() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6 text-black">
       <header>
-        <h1 className="text-3xl font-bold text-black">Importer un CSV</h1>
+        <h1 className="text-3xl font-bold text-black">Importer un fichier</h1>
         <p className="mt-2 text-black">
-          Choisis un fichier, vérifie ses colonnes et associe-les aux champs
-          attendus avant l’import.
+          Choisis un fichier CSV ou Excel, vérifie ses colonnes et associe-les
+          aux champs attendus avant l’import.
         </p>
       </header>
 
       <section className="space-y-4 rounded-xl border border-slate-300 bg-white p-6">
         <label className="block">
           <span className="mb-2 block font-medium text-black">
-            Fichier CSV
+            Fichier CSV ou Excel (.xlsx)
           </span>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={selectFile}
             className="block w-full text-black"
           />
@@ -373,7 +374,7 @@ export function ImportMappingForm() {
         >
           <h2 className="text-xl font-bold text-black">Rapport d’import</h2>
           <p className="text-black">
-            Statut : {batch.status} — lignes lues : {batch.total_rows} —{" "}
+            Statut : {importStatusLabel(batch.status)} — lignes lues : {batch.total_rows} —{" "}
             importées : {batch.imported_rows} — erreurs : {batch.error_rows}
           </p>
 

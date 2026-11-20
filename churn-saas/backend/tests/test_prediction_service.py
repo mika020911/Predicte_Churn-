@@ -43,7 +43,7 @@ def make_customer(db, org, external_id):
 
 def make_batch(db, org, filename="test.csv"):
     batch = ImportBatch(organization_id=org.id, filename=filename, source="csv_upload",
-                        status="COMPLETED", total_rows=0, imported_rows=0, error_rows=0,
+                        status="completed", total_rows=0, imported_rows=0, error_rows=0,
                         anomaly_report=[])
     db.add(batch)
     db.commit()

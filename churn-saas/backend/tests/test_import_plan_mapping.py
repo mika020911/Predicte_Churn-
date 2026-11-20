@@ -112,7 +112,7 @@ def test_import_is_refused_while_plans_are_unranked(client, db_session):
     headers = register_and_login(client)
     batch = client.post("/api/v1/imports/upload", headers=headers,
                         files={"file": csv_file([("C1", "Standard"), ("C2", "Pro")])}).json()
-    assert batch["status"] == "FAILED"
+    assert batch["status"] == "failed"
     assert "Plans non classés" in batch["error_message"]
     assert db_session.query(Observation).count() == 0
 
@@ -122,7 +122,7 @@ def test_import_stores_the_rank_of_each_plan(client, db_session):
     client.put("/api/v1/imports/mapping", headers=headers, json={"plan_order": ["Standard", "Pro", "Max Ultra"]})
     batch = client.post("/api/v1/imports/upload", headers=headers, files={
         "file": csv_file([("C1", "standard"), ("C2", "PRO"), ("C3", "Max Ultra")])}).json()
-    assert batch["status"] == "COMPLETED" and batch["imported_rows"] == 3
+    assert batch["status"] == "completed" and batch["imported_rows"] == 3
     ranks = {o.customer.external_id: o.plan_tier_rank for o in db_session.query(Observation).all()}
     assert ranks == {"C1": 0.0, "C2": 0.5, "C3": 1.0}
 
@@ -140,5 +140,5 @@ def test_csv_without_plan_column_uses_the_neutral_rank(client, db_session):
     headers = register_and_login(client)
     batch = client.post("/api/v1/imports/upload", headers=headers,
                         files={"file": csv_file([("C1", None)], with_plan=False)}).json()
-    assert batch["status"] == "COMPLETED"
+    assert batch["status"] == "completed"
     assert db_session.query(Observation).one().plan_tier_rank == NEUTRAL_PLAN_TIER_RANK

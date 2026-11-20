@@ -3,6 +3,7 @@ import io
 import math
 import unicodedata
 from datetime import datetime, timezone
+from pathlib import Path
  
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -124,6 +125,26 @@ def read_csv_as_text(file_bytes: bytes) -> pd.DataFrame:
     return df
  
  
+def read_tabular_file(file_bytes: bytes, filename: str) -> pd.DataFrame:
+    """Lit un CSV ou un XLSX (première feuille) en texte, comme read_csv_as_text."""
+    suffix = Path(filename or "").suffix.lower()
+    if suffix == ".csv":
+        return read_csv_as_text(file_bytes)
+    if suffix == ".xlsx":
+        try:
+            df = pd.read_excel(
+                io.BytesIO(file_bytes),
+                sheet_name=0,
+                dtype=str,
+                engine="openpyxl",
+            )
+        except Exception as exc:  # pandas/openpyxl lèvent des types d'erreur variés
+            raise ValueError(f"Fichier Excel illisible : {exc}") from exc
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+    raise ValueError("Format non pris en charge : CSV ou XLSX attendu.")
+
+
 def build_csv_template() -> str:
     """CSV modèle téléchargeable : en-têtes + 2 lignes d'exemple valides."""
     buffer = io.StringIO()
@@ -173,9 +194,14 @@ def apply_column_mapping(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
     return df[list(rename)].rename(columns=rename)
  
  
-def build_import_preview(file_bytes: bytes, org: Organization, sent_mapping: dict | None = None) -> dict:
-    """Aperçu pour l'écran de mapping. N'écrit rien en base."""
-    df = read_csv_as_text(file_bytes)
+def build_import_preview(
+    file_bytes: bytes,
+    filename: str,
+    org: Organization,
+    sent_mapping: dict | None = None,
+) -> dict:
+    """Aperçu CSV/XLSX pour l'écran de mapping. N'écrit rien en base."""
+    df = read_tabular_file(file_bytes, filename)
     saved = org.column_mapping or {}
     mapping = suggest_column_mapping(list(df.columns), {**saved, **(sent_mapping or {})})
  
@@ -225,14 +251,14 @@ def process_csv_import(
     db: Session,
     column_mapping: dict | None = None,
 ) -> ImportBatch:
-    org_id = current_user.organization_id
- 
+    """Adaptateur synchrone : crée le lot, lit le fichier, puis délègue à ingest_dataframe."""
+    org = db.get(Organization, current_user.organization_id)
     batch = ImportBatch(
-        organization_id=org_id,
+        organization_id=current_user.organization_id,
         uploaded_by_user_id=current_user.id,
         filename=filename,
         source="csv_upload",
-        status="PROCESSING",
+        status="processing",
         total_rows=0,
         imported_rows=0,
         error_rows=0,
@@ -242,20 +268,39 @@ def process_csv_import(
     db.commit()
     batch_id = batch.id
 
+    try:
+        df = read_tabular_file(file_bytes, filename)
+    except Exception as e:
+        batch.status = "failed"
+        batch.error_message = f"Fichier illisible : {str(e)}"
+        batch.completed_at = datetime.now(timezone.utc)
+        db.commit()
+        return batch
+
+    return ingest_dataframe(df, batch, org, column_mapping, db)
+
+
+def ingest_dataframe(
+    df: pd.DataFrame,
+    batch: ImportBatch,
+    org: Organization,
+    mapping: dict | None,
+    db: Session,
+) -> ImportBatch:
+    """Cœur d'import d'un DataFrame déjà lu (CSV ou XLSX), indépendant de l'utilisateur."""
+    org_id = org.id
+    batch_id = batch.id
+    batch.total_rows = len(df)
 
     try:
-        df = read_csv_as_text(file_bytes)
-        batch.total_rows = len(df)
- 
         # --- Mapping des colonnes : requête > organisation > détection par nom
-        org = db.get(Organization, org_id)
         mapping = suggest_column_mapping(
             list(df.columns),
-            {**(org.column_mapping or {}), **(column_mapping or {})},
+            {**(org.column_mapping or {}), **(mapping or {})},
         )
         problems = validate_column_mapping(mapping)
         if problems:
-            batch.status = "FAILED"
+            batch.status = "failed"
             batch.error_message = " | ".join(problems)
             batch.completed_at = datetime.now(timezone.utc)
             db.commit()
@@ -270,7 +315,7 @@ def process_csv_import(
         if has_plan_column:
             unranked = [p for p in distinct_plan_labels(df["plan"]) if normalize(p) not in plan_ranks]
             if unranked:
-                batch.status = "FAILED"
+                batch.status = "failed"
                 batch.error_message = (
                     f"Plans non classés : {', '.join(unranked)}. "
                     "Classe-les du moins cher au plus cher avant l'import."
@@ -398,7 +443,7 @@ def process_csv_import(
         batch.imported_rows = imported_count
         batch.error_rows = len(anomalies)
         batch.anomaly_report = anomalies
-        batch.status = "COMPLETED" if imported_count > 0 else "FAILED"
+        batch.status = "completed" if imported_count > 0 else "failed"
         batch.completed_at = datetime.now(timezone.utc)
  
         db.commit()
@@ -407,7 +452,7 @@ def process_csv_import(
     except Exception as e:
         db.rollback()
         batch = db.get(ImportBatch, batch_id)
-        batch.status = "FAILED"
+        batch.status = "failed"
         batch.error_message = f"Erreur critique lors du traitement du fichier : {str(e)}"
         batch.completed_at = datetime.now(timezone.utc)
         db.commit()

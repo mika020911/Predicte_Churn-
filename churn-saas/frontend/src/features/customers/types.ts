@@ -33,3 +33,22 @@ export interface CustomerListParams{
     page?: number;
     page_size?: number;
 }
+
+export interface CustomerObservation {
+    snapshot_date: string;
+    tenure_months: number;
+    contract_type: number;
+    mrr_change_pct: number;
+    support_tickets_30d: number;
+    recency_days: number;
+    frequency_trend_30d: number;
+    engagement_breadth: number;
+    payment_failures_90d: number;
+    plan_tier_rank: number;
+}
+
+export interface CustomerDetail extends Customer {
+    phone_number: string | null;
+    shap_values: Record<string, number>;
+    observation: CustomerObservation;
+}

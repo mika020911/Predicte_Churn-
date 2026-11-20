@@ -68,6 +68,43 @@ def list_customers(db: Session, organization_id: int, zone: Optional[str], page:
     }
 
 
+def get_customer_detail(db: Session, organization_id: int, customer_id: int) -> Optional[dict]:
+    """Fiche d'un client de l'organisation, avec sa prédiction active et son observation.
+
+    Renvoie None si le client n'existe pas dans cette organisation ou s'il n'a
+    aucune prédiction active (même règle que la liste).
+    """
+    row = (
+        db.query(Customer, Prediction, Observation)
+        .join(Prediction, Prediction.customer_id == Customer.id)
+        .join(Observation, Observation.id == Prediction.observation_id)
+        .filter(
+            Customer.id == customer_id,
+            Customer.organization_id == organization_id,
+            Prediction.is_active.is_(True),
+        )
+        .first()
+    )
+    if row is None:
+        return None
+
+    customer, prediction, observation = row
+    return {
+        "customer_id": customer.id,
+        "external_id": customer.external_id,
+        "name": customer.name,
+        "email": customer.email,
+        "phone_number": customer.phone_number,
+        "score": prediction.score,
+        "risk_level": prediction.risk_level,
+        "snapshot_date": observation.snapshot_date,
+        "top_reasons": prediction.top_reasons or [],
+        "shap_values": prediction.shap_values or {},
+        "model_version": prediction.model_version,
+        "observation": observation,
+    }
+
+
 def zone_counts(db: Session, organization_id: int) -> dict:
     """Nombre de clients par zone de risque (prédictions actives de l'organisation)."""
     rows = (

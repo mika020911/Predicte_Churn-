@@ -1,4 +1,5 @@
 import type {
+    CustomerDetail,
     CustomerListParams,
     CustomerListResponse,
 }from "../types";
@@ -37,5 +38,28 @@ export async function getCustomers(
                 : "Impossible de charger la liste des clients.";
         throw new Error(detail);
     }
+    return response.json();
+}
+
+export async function getCustomer(
+    token: string,
+    customerId: number,
+): Promise<CustomerDetail> {
+    const response = await fetch(`${API_URL}/customers/${customerId}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+    });
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const detail =
+            typeof body.detail === "string"
+                ? body.detail
+                : "Impossible de charger la fiche du client.";
+        throw new Error(detail);
+    }
+
     return response.json();
 }

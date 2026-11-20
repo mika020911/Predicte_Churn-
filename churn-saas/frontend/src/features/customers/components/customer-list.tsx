@@ -1,12 +1,11 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { getCustomers } from "../api/customers-api";
-import type {
-  CustomerListResponse,
-  RiskZone,
-} from "../types";
+import { formatScore, zoneBadgeClass, zoneLabel } from "../risk";
+import type { CustomerListResponse, RiskZone } from "../types";
 
 type ZoneFilter = RiskZone | "all";
 
@@ -19,36 +18,9 @@ const ZONES: Array<{ value: ZoneFilter; label: string }> = [
   { value: "high", label: "Élevé" },
 ];
 
-function formatScore(score: number): string {
-  return `${Math.round(score * 100)} %`;
-}
-
-function zoneLabel(zone: RiskZone): string {
-  switch (zone) {
-    case "low":
-      return "Faible";
-    case "medium":
-      return "Moyen";
-    case "high":
-      return "Élevé";
-  }
-}
-
-function zoneBadgeClass(zone: RiskZone): string {
-  switch (zone) {
-    case "low":
-      return "bg-green-100 text-green-800";
-    case "medium":
-      return "bg-orange-100 text-orange-800";
-    case "high":
-      return "bg-red-100 text-red-800";
-  }
-}
-
 export function CustomerList() {
   const { token, loading: authLoading } = useAuth();
 
-  const [expandedCustomerId, setExpandedCustomerId] = useState<number | null>(null);
   const [data, setData] = useState<CustomerListResponse | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -84,9 +56,7 @@ export function CustomerList() {
       setData(result);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Une erreur est survenue.",
+        err instanceof Error ? err.message : "Une erreur est survenue.",
       );
     } finally {
       setLoading(false);
@@ -112,9 +82,7 @@ export function CustomerList() {
   return (
     <section className="mx-auto max-w-6xl space-y-6 p-6 text-black">
       <header>
-        <h1 className="text-3xl font-bold text-black">
-          Clients
-        </h1>
+        <h1 className="text-3xl font-bold text-black">Clients</h1>
         <p className="mt-1 text-black">
           Recherche et suivi du risque de départ.
         </p>
@@ -185,6 +153,7 @@ export function CustomerList() {
                 <th className="px-5 py-3 font-semibold">Score</th>
                 <th className="px-5 py-3 font-semibold">Zone</th>
                 <th className="px-5 py-3 font-semibold">Observation</th>
+                <th className="px-5 py-3 font-semibold">Fiche</th>
               </tr>
             </thead>
 
@@ -192,31 +161,22 @@ export function CustomerList() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-5 py-10 text-center text-black"
                   >
                     Chargement des clients…
                   </td>
                 </tr>
               ) : data?.items.length ? (
-                data.items.map((customer) => {
-                  const isExpanded = expandedCustomerId===customer.customer_id;
-                  
-                  return (
-                  <Fragment key={customer.customer_id}>
-                  <tr className="text-black">
+                data.items.map((customer) => (
+                  <tr key={customer.customer_id} className="text-black">
                     <td className="px-5 py-4">
-                      <button
-                      type="button"
-                      aria-expanded={isExpanded}
-                      onClick={()=>
-                        setExpandedCustomerId(
-                          isExpanded ? null : customer.customer_id,
-                        )
-                      }
-                      className="font-medium text-black underline">
-                        {customer.name || "_"}
-                      </button>
+                      <Link
+                        href={`/dashboard/customers/${customer.customer_id}`}
+                        className="font-medium text-black underline underline-offset-4 hover:text-blue-900"
+                      >
+                        {customer.name || customer.external_id}
+                      </Link>
 
                       <div className="text-sm text-black">
                         {customer.email || ""}
@@ -244,56 +204,25 @@ export function CustomerList() {
                     <td className="px-5 py-4 text-sm text-black">
                       {customer.snapshot_date}
                     </td>
+
+                    <td className="px-5 py-4">
+                      <Link
+                        href={`/dashboard/customers/${customer.customer_id}`}
+                        className="font-semibold text-blue-800 underline underline-offset-4 hover:text-blue-950"
+                      >
+                        Voir la fiche
+                      </Link>
+                    </td>
                   </tr>
-
-                  {isExpanded && (
-                    <tr className="bg-blue-50">
-                      <td colSpan={5} className="px-5 py-4 text-black">
-                        <h2 className="font-semibold text-black">
-                          Détail du risque
-                        </h2>
-
-                        <p className="mt-1 text-black">
-                          Score : {formatScore(customer.score)} . Zone :{" "}
-                          {zoneLabel(customer.risk_level)} . Observation : {" "}
-                          {customer.snapshot_date}
-                        </p>
-
-                        {customer.model_version && (
-                          <p className="mt-1 text-sm text-black">
-                            Version du modèle : {customer.model_version}
-                          </p>
-                        )}
-
-                        <h3 className="mt-4 font-semibold text-black">
-                          Principales raisons
-                        </h3>
-
-                        {customer.top_reasons.length > 0 ? (
-                          <ul className="mt-2 list-inside list-disc space-y-1">
-                            {customer.top_reasons.map((reason, index)=> (
-                              <li key={`${reason.feature}-${index}`} className="text-black">
-                                {reason.message}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="mt-2 text-black">Aucune raison détaillée disponible pour ce client.</p>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                  );
-                })
+                ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-black">
+                  <td colSpan={6} className="px-5 py-10 text-center text-black">
                     Aucun client à afficher.
                   </td>
                 </tr>
               )}
-                </tbody>
+            </tbody>
           </table>
         </div>
 

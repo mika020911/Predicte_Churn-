@@ -23,7 +23,9 @@ SaaS de **prédiction du churn par IA explicable**. Une entreprise importe ses d
 - Détection des doublons (même client à la même date).
 - Score de risque de départ par client, calculé à chaque import.
 - Explication de chaque score par **SHAP** : les 3 facteurs qui augmentent le plus le risque, en français.
-- Zones de risque (`low`, `medium`, `high`) selon des **seuils réglables par organisation**.
+- Zones de risque (`low`, `medium`, `high`) selon des **seuils réglables par organisation** depuis la page Paramètres.
+- Liste des clients avec recherche, filtres par zone, compteurs et pagination.
+- **Fiche client dédiée** : score, raisons, valeurs SHAP et données de l'observation.
 - Une seule prédiction active par client : celle de son observation la plus récente.
 
 ## Architecture
@@ -44,12 +46,13 @@ Flux d'un import : CSV, puis validation et mapping, puis `observations`, puis le
 churn-saas/
 ├── backend/            API FastAPI
 │   ├── app/
-│   │   ├── api/v1/endpoints/   routes (auth, imports)
+│   │   ├── api/v1/endpoints/   routes (auth, imports, customers, risk-settings)
 │   │   ├── models/             tables SQLAlchemy
-│   │   └── services/           import_service, prediction_service, ml_client
+│   │   └── services/           import_service, prediction_service, customer_service, ml_client
 │   ├── alembic/                migrations
 │   └── tests/
 ├── frontend/           application Next.js
+│   └── src/features/   auth, customers, imports, settings (organisation feature-first)
 ├── ml/                 module de machine learning
 │   ├── src/            code (données, benchmark, SHAP, prédiction)
 │   ├── data/raw/       jeu de données synthétique
@@ -130,7 +133,7 @@ Application : http://localhost:3000
 
 Faute de données clients réelles, le jeu de données est **synthétique** (`ml/src/generate_data.py`, 6 000 clients, 18 % de churn). Un score est calculé à partir de règles connues (ancienneté, type de contrat, inactivité, échecs de paiement, etc.) auxquelles s'ajoutent du bruit et des effets de seuil non linéaires. La difficulté est réglée dans `ml/src/config.py` pour qu'une régression logistique atteigne environ 0,86 d'AUC-ROC.
 
-Les 8 variables d'entrée :
+Les 9 variables d'entrée :
 
 | Variable | Signification |
 |---|---|
@@ -142,6 +145,9 @@ Les 8 variables d'entrée :
 | `frequency_trend_30d` | évolution de la fréquence d'usage (1,0 = stable, moins de 1 = en baisse) |
 | `engagement_breadth` | part des fonctionnalités utilisées (0 à 1) |
 | `payment_failures_90d` | échecs de paiement sur 90 jours |
+| `plan_tier_rank` | rang de gamme du plan dans le catalogue du client (0 = entrée de gamme, 1 = haut de gamme, 0,5 = inconnu) |
+
+La colonne `plan` du CSV est **optionnelle**. Quand elle est fournie, l'analyste classe les plans du moins cher au plus cher lors de l'import ; le backend convertit ce classement en `plan_tier_rank`. Sans colonne `plan`, la valeur neutre `0,5` est utilisée.
 
 ### Méthode
 
@@ -156,18 +162,18 @@ Validation (seuil de décision 0,4) :
 
 | Modèle | AUC-PR | AUC-ROC | Brier | Rappel | Précision | F1 |
 |---|---|---|---|---|---|---|
-| Régression logistique (référence) | 0,616 | 0,842 | 0,110 | 0,49 | 0,60 | 0,54 |
-| Random Forest | 0,701 | 0,868 | 0,094 | 0,52 | 0,79 | 0,63 |
-| **XGBoost (retenu)** | **0,721** | 0,867 | 0,092 | 0,55 | 0,80 | 0,65 |
+| Régression logistique (référence) | 0,634 | 0,863 | 0,101 | 0,47 | 0,61 | 0,53 |
+| Random Forest | 0,731 | 0,885 | 0,082 | 0,57 | 0,82 | 0,67 |
+| **XGBoost (retenu)** | **0,750** | 0,894 | 0,079 | 0,58 | 0,81 | 0,67 |
 
 Examen final sur le jeu de test :
 
 | | AUC-PR | AUC-ROC | Brier | ECE |
 |---|---|---|---|---|
-| XGBoost brut (utilisé) | 0,748 | 0,902 | 0,079 | 0,016 |
-| Après calibration isotonique | 0,729 | 0,904 | 0,081 | 0,024 |
+| XGBoost brut (utilisé) | 0,744 | 0,899 | 0,088 | 0,030 |
+| Après calibration isotonique | 0,707 | 0,899 | 0,091 | 0,037 |
 
-La calibration n'apporte **aucun gain** : XGBoost est déjà bien calibré (ECE de 0,016). Le modèle brut est donc utilisé en production, et le résultat est documenté dans `ml/reports/calibration_results.json`.
+La calibration n'apporte **aucun gain** : XGBoost est déjà bien calibré (ECE de 0,030) et la calibration dégrade légèrement l'AUC-PR et le Brier. Le modèle brut est donc utilisé en production, et le résultat est documenté dans `ml/reports/calibration_results.json`.
 
 Graphiques : `ml/reports/benchmark_curves.png`, `calibration_curve.png`, `shap_summary.png`.
 
@@ -205,13 +211,22 @@ Préfixe : `/api/v1`. Documentation complète sur `/docs`.
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| `POST` | `/auth/...` | authentification |
+| `POST` | `/auth/register` | créer une organisation et son administrateur |
+| `POST` | `/auth/login` | connexion (formulaire OAuth2) |
+| `POST` | `/auth/login/json` | connexion (JSON, utilisée par le frontend) |
+| `GET` | `/auth/me` | profil de l'utilisateur connecté |
+| `POST` | `/auth/forgot-password` | demander un lien de réinitialisation |
+| `POST` | `/auth/reset-password` | choisir un nouveau mot de passe |
 | `GET` | `/imports/template` | télécharger le CSV modèle |
 | `POST` | `/imports/preview` | aperçu des colonnes et du mapping, sans écrire en base |
 | `PUT` | `/imports/mapping` | enregistrer le mapping de l'organisation |
 | `POST` | `/imports/upload` | importer un CSV et calculer les prédictions |
 | `GET` | `/imports/` | liste des imports |
 | `GET` | `/imports/{id}` | détail et rapport d'anomalies d'un import |
+| `GET` | `/customers` | liste paginée des clients avec leur prédiction active |
+| `GET` | `/customers/{id}` | fiche d'un client : raisons, SHAP, observation |
+| `GET` | `/risk-settings` | seuils de risque de l'organisation |
+| `PUT` | `/risk-settings` | modifier les seuils et reclasser les prédictions existantes |
 
 Format minimal d'un CSV d'import :
 
@@ -235,14 +250,19 @@ cd ml && python -m pytest tests -q
 
 Les tests ML vérifient notamment : score entre 0 et 1, au plus 3 raisons toutes positives, erreur claire si une colonne manque, valeurs absentes acceptées, découpage temporel sans chevauchement.
 
+Les tests backend couvrent l'authentification, l'import et le mapping des plans, le calcul des prédictions, les seuils de risque, la liste des clients et la fiche client (isolation multi-tenant incluse).
+
 ## État d'avancement
 
 - [x] Modèle de données (clients, observations, prédictions, alertes, seuils de risque)
 - [x] Import CSV avec mapping, validation et rapport d'anomalies
 - [x] Module ML : benchmark, SHAP, prédiction, tests
 - [x] Calcul des prédictions à chaque import
+- [x] Authentification, réinitialisation du mot de passe et isolation multi-tenant
+- [x] Endpoints de consultation des clients et des prédictions
+- [x] Liste des clients, recherche, filtres, pagination et fiche client dédiée
+- [x] Page Paramètres pour modifier les seuils de risque
 - [ ] Création des alertes pour les clients à haut risque
-- [ ] Endpoints de consultation des clients et des prédictions
 - [ ] Dockerfiles du backend et du frontend (le `docker-compose.yml` les référence déjà)
 
 ## Limites connues

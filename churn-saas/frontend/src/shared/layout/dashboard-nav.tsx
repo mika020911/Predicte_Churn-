@@ -16,6 +16,11 @@ const navItems = [
     label: "Historique",
     icon: "/icons/historique.png",
   },
+  {
+    href: "/dashboard/settings",
+    label: "Paramètres",
+    icon: "/icons/parametres.png",
+  },
 ];
 
 type DashboardNavProps = {
@@ -106,21 +111,6 @@ export function DashboardNav({
             );
           })}
 
-          {/* Paramètres : ajouter le lien quand /dashboard/settings existera. */}
-          <div
-            aria-disabled="true"
-            title="La page Paramètres sera disponible prochainement"
-            className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-3 font-semibold text-black/50"
-          >
-            <img
-              src="/icons/parametres.png"
-              alt=""
-              aria-hidden="true"
-              className="h-5 w-5 shrink-0 object-contain opacity-50"
-            />
-            <span>Paramètres</span>
-            <span className="ml-auto text-xs">Bientôt</span>
-          </div>
         </nav>
 
         <div className="border-t border-blue-100 p-4">

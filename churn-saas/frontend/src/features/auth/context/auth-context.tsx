@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 interface AuthContextType{
     user: User | null;
     token: string | null;
-    loading: Boolean;
+    loading: boolean;
     login: (payload:LoginPayload) => Promise<void>;
     register: (payload:RegisterPayload) => Promise<void>;
     logout: () => void;
@@ -28,7 +28,7 @@ const AuthContext =createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider ({children}: {children: React.ReactNode}) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string |null>(null);
-    const [loading, setLoading] = useState<Boolean>(true);
+    const [loading, setLoading] = useState<boolean>(true);
     const router = useRouter();
 
     useEffect(()=> {

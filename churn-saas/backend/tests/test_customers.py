@@ -257,3 +257,58 @@ def test_blank_search_behaves_like_no_search(client, db_session):
 
     assert response.status_code == 200
     assert response.json()["total"] == 2
+
+# ------------------------------------------------------------ fiche client
+def test_detail_requires_authentication(client):
+    assert client.get(f"{URL}/1").status_code == 401
+
+
+def test_detail_unknown_customer_returns_404(client):
+    headers, _ = register_and_login(client)
+    assert client.get(f"{URL}/9999", headers=headers).status_code == 404
+
+
+def test_detail_returns_active_prediction_reasons_shap_and_observation(client, db_session):
+    headers, org = register_and_login(client)
+    customer = add_customer(db_session, org, "C-DETAIL", "Alice Durand")
+    prediction = add_prediction(
+        db_session, customer, 0.82, "high", reasons=REASONS
+    )
+    prediction.shap_values = {"recency_days": 0.42, "tenure_months": -0.11}
+    db_session.commit()
+
+    response = client.get(f"{URL}/{customer.id}", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["customer_id"] == customer.id
+    assert data["external_id"] == "C-DETAIL"
+    assert data["name"] == "Alice Durand"
+    assert data["score"] == 0.82
+    assert data["risk_level"] == "high"
+    assert data["snapshot_date"] == "2026-11-01"
+    assert data["top_reasons"] == REASONS
+    assert data["shap_values"] == {"recency_days": 0.42, "tenure_months": -0.11}
+    assert data["model_version"] == "test-v1"
+    assert data["observation"]["tenure_months"] == 12
+    assert data["observation"]["engagement_breadth"] == 0.5
+    assert data["observation"]["plan_tier_rank"] == 0.5
+
+
+def test_detail_hides_customers_from_other_organizations(client, db_session):
+    headers_a, _ = register_and_login(client, "a@company.com", "Org A")
+    _, org_b = register_and_login(client, "b@company.com", "Org B")
+    other_customer = add_customer(db_session, org_b, "B-ONLY", "Bob")
+    add_prediction(db_session, other_customer, 0.9, "high")
+
+    response = client.get(f"{URL}/{other_customer.id}", headers=headers_a)
+
+    assert response.status_code == 404
+
+
+def test_detail_ignores_inactive_predictions(client, db_session):
+    headers, org = register_and_login(client)
+    customer = add_customer(db_session, org, "INACTIVE", "Chloé")
+    add_prediction(db_session, customer, 0.9, "high", active=False)
+
+    assert client.get(f"{URL}/{customer.id}", headers=headers).status_code == 404

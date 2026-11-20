@@ -9,6 +9,7 @@ const pageTitles: Array<{ prefix: string; title: string }> = [
   { prefix: "/dashboard/customers", title: "Clients" },
   { prefix: "/dashboard/imports/history", title: "Historique des imports" },
   { prefix: "/dashboard/imports", title: "Import de fichiers" },
+  { prefix: "/dashboard/settings", title: "Paramètres" },
   { prefix: "/dashboard", title: "Vue d’ensemble" },
 ];
 

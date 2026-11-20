@@ -133,11 +133,11 @@ export function ImportMappingForm() {
     const assignedColumns = Object.values(mapping).filter(
       (value): value is string => Boolean(value),
     );
-    const duplicates = [...new Set(
+    const duplicates = Array.from(new Set(
       assignedColumns.filter(
         (column, index) => assignedColumns.indexOf(column) !== index,
       ),
-    )];
+    ));
 
     if (duplicates.length > 0) {
       problems.push(

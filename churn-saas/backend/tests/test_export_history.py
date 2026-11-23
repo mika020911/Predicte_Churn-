@@ -7,6 +7,7 @@ from datetime import date
 from openpyxl import load_workbook
 
 from app.models import Customer, ImportBatch, Observation, Organization, Prediction
+from app.services import export_service
 
 from tests.helpers import create_user, login_headers, register_admin
 
@@ -48,6 +49,7 @@ def add_prediction(
     reasons: list | None = None,
     model_version: str = "test-v1",
     is_active: bool = True,
+    phone_number: str | None = None,
 ) -> Prediction:
     customer = (
         db.query(Customer)
@@ -62,6 +64,7 @@ def add_prediction(
             organization_id=organization_id,
             external_id=external_id,
             name=name or external_id,
+            phone_number=phone_number,
         )
         db.add(customer)
         db.flush()
@@ -173,7 +176,8 @@ def test_customer_export_neutralises_formulas(client, db_session):
     sheet = load_workbook(io.BytesIO(xlsx.content)).active
     values = list(sheet.values)
     assert values[1][2].startswith("'=")
-    assert values[1][9].startswith("'+SUM")
+    # En XLSX, seul « = » est préfixé : « +SUM » reste intact.
+    assert values[1][9] == "+SUM(A1:A2)"
 
 
 def test_viewer_can_export_customers(client, db_session):
@@ -297,3 +301,35 @@ def test_history_is_isolated_by_organization(client, db_session):
 
 def test_history_requires_a_token(client):
     assert client.get("/api/v1/customers/1/history").status_code == 401
+
+
+def test_phone_numbers_are_not_prefixed_in_csv(client, db_session):
+    admin = register_admin(client, email="export-phone@example.com")
+    headers = login_headers(client, admin["email"])
+    add_prediction(
+        db_session,
+        admin["organization_id"],
+        "C1",
+        phone_number="+33 6 12 34 56 78",
+    )
+
+    row = read_csv(
+        client.get("/api/v1/customers/export?format=csv", headers=headers).content
+    )[1]
+
+    assert row[4] == "+33 6 12 34 56 78"
+
+
+def test_export_marks_truncation_when_the_cap_is_reached(
+    client, db_session, monkeypatch
+):
+    monkeypatch.setattr(export_service, "MAX_EXPORT_ROWS", 1)
+    admin = register_admin(client, email="export-truncated@example.com")
+    headers = login_headers(client, admin["email"])
+    add_prediction(db_session, admin["organization_id"], "C1", score=0.9)
+    add_prediction(db_session, admin["organization_id"], "C2", score=0.8)
+
+    response = client.get("/api/v1/customers/export?format=csv", headers=headers)
+
+    assert response.headers["x-export-truncated"] == "true"
+    assert len(read_csv(response.content)) == 2  # en-tête + 1 ligne

@@ -64,7 +64,7 @@ def export_customers(
 
     Déclaré avant /{customer_id} pour ne pas être capturé comme un identifiant.
     """
-    rows = customer_service.export_customers(
+    rows, truncated = customer_service.export_customers(
         db,
         current_user.organization_id,
         zone,
@@ -75,11 +75,10 @@ def export_customers(
         format, EXPORT_HEADERS, rows
     )
     filename = export_service.export_filename("clients", extension)
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if truncated:
+        headers["X-Export-Truncated"] = "true"
+    return Response(content=content, media_type=media_type, headers=headers)
 
 
 @router.get("/{customer_id}", response_model=CustomerDetailRead)

@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,8 @@ from app.schemas.auth import (
     PasswordResetMessage,
     ResetPasswordRequest,
 )
+from app.schemas.team import InvitationAccept, InvitationPreview
+from app.services import invitation_service
 from app.services.email_service import send_password_reset_email
 
 
@@ -119,6 +121,34 @@ def login_json(payload:LoginRequest, db:Session = Depends(get_db)) -> Token:
 def read_current_user(current_user: User = Depends(get_current_active_user)) -> User:
     #Profil User
     return current_user
+
+#invitations d'équipe------------------
+
+@router.get("/invitations/preview", response_model=InvitationPreview)
+def preview_invitation(
+    token: str = Query(..., min_length=20, max_length=200),
+    db: Session = Depends(get_db),
+):
+    """Aperçu public d'une invitation (email, organisation, rôle)."""
+    return invitation_service.preview_invitation(db, token)
+
+
+@router.post("/invitations/accept", response_model=Token)
+def accept_invitation(
+    payload: InvitationAccept,
+    db: Session = Depends(get_db),
+) -> Token:
+    """Accepte l'invitation et connecte automatiquement le nouvel utilisateur."""
+    user = invitation_service.accept_invitation(
+        db, payload.token, payload.full_name, payload.password
+    )
+    access_token = create_access_token(
+        subject=str(user.id),
+        organization_id=user.organization_id,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    return Token(access_token=access_token, token_type="bearer")
+
 
 #forget password------------------
 

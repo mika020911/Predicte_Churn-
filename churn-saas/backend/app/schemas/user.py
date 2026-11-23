@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 
+from app.core.passwords import Password
+
 #ORG
 class OrganizationBase(BaseModel):
     name: str
@@ -26,7 +28,7 @@ class RegisterRequest(BaseModel):
     """Inscription publique : le rôle n'est jamais fourni par le client."""
 
     email: EmailStr
-    password: str
+    password: Password
     full_name: str
     organization_name: str
 
@@ -34,7 +36,7 @@ class RegisterRequest(BaseModel):
 class UserCreate(UserBase):
     """Création interne d'un utilisateur (usage serveur uniquement)."""
 
-    password: str
+    password: Password
     organization_name: Optional[str] = None
 
 class UserRead(UserBase):

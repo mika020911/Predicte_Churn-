@@ -5,8 +5,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
+from app.config import settings
 from app.database import Base
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _no_outgoing_email(monkeypatch):
+    """Les tests ne doivent jamais contacter un vrai serveur SMTP."""
+    monkeypatch.setattr(settings, "email_dry_run", True)
 
 # Base de données SQLite en mémoire dédiée aux tests
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"

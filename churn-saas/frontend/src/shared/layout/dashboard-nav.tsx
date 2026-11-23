@@ -26,6 +26,12 @@ const navItems: NavItem[] = [
     icon: "/icons/historique.png",
   },
   {
+    href: "/dashboard/team",
+    label: "Équipe",
+    icon: "/icons/email.png",
+    adminOnly: true,
+  },
+  {
     href: "/dashboard/settings",
     label: "Paramètres",
     icon: "/icons/parametres.png",

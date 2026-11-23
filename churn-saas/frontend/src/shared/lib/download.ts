@@ -9,11 +9,16 @@ function filenameFromDisposition(
   return match ? decodeURIComponent(match[1]) : fallback;
 }
 
+export interface DownloadResult {
+  filename: string;
+  truncated: boolean;
+}
+
 export async function downloadFile(
   token: string,
   url: string,
   fallbackName: string,
-): Promise<void> {
+): Promise<DownloadResult> {
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -35,6 +40,7 @@ export async function downloadFile(
     response.headers.get("Content-Disposition"),
     fallbackName,
   );
+  const truncated = response.headers.get("X-Export-Truncated") === "true";
 
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -43,5 +49,8 @@ export async function downloadFile(
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(objectUrl);
+  // Laisse au navigateur le temps de démarrer le téléchargement.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+
+  return { filename, truncated };
 }

@@ -28,6 +28,7 @@ export function CustomerList() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "xlsx" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Attend 300 ms après la saisie avant de déclencher la recherche.
@@ -82,8 +83,9 @@ export function CustomerList() {
     if (!token) return;
     setExporting(format);
     setError(null);
+    setNotice(null);
     try {
-      await exportCustomers(
+      const result = await exportCustomers(
         token,
         {
           search,
@@ -91,6 +93,11 @@ export function CustomerList() {
         },
         format,
       );
+      if (result.truncated) {
+        setNotice(
+          "Export limité à 50 000 lignes : affine les filtres pour obtenir la suite.",
+        );
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "L’export a échoué.",
@@ -183,6 +190,15 @@ export function CustomerList() {
           className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
         >
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-orange-950"
+        >
+          {notice}
         </div>
       )}
 

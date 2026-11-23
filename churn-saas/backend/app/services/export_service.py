@@ -1,22 +1,44 @@
 """Génération des exports CSV/XLSX (clients, rapports d'import).
 
-Neutralise les formules tableur : une cellule texte commençant par =, +, - ou @
-est préfixée par une apostrophe pour ne pas être exécutée à l'ouverture.
+Neutralise les formules tableur : en CSV, une cellule texte commençant par =, +, - ou @
+est préfixée par une apostrophe (sauf les numéros de téléphone) ; en XLSX, seules les
+valeurs commençant par = sont préfixées.
 """
 
 import csv
 import io
+import re
 from datetime import date
 
 from openpyxl import Workbook
 
 MAX_EXPORT_ROWS = 50_000
 _FORMULA_PREFIXES = ("=", "+", "-", "@")
+_PHONE_PATTERN = re.compile(r"^\+?[0-9() .-]+$")
 
 
-def neutralise_formula(value):
-    """Empêche l'injection de formules dans un tableur."""
-    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):
+def is_phone_number(value) -> bool:
+    """Un numéro de téléphone ne doit pas être préfixé (sinon il devient du texte)."""
+    if not isinstance(value, str) or not _PHONE_PATTERN.fullmatch(value.strip()):
+        return False
+    # Un vrai numéro contient plusieurs chiffres : évite de blanchir « -1+1 ».
+    return sum(character.isdigit() for character in value) >= 6
+
+
+def neutralise_csv(value):
+    """CSV : apostrophe devant =, +, - ou @, sauf pour un numéro de téléphone."""
+    if (
+        isinstance(value, str)
+        and value.startswith(_FORMULA_PREFIXES)
+        and not is_phone_number(value)
+    ):
+        return "'" + value
+    return value
+
+
+def neutralise_xlsx(value):
+    """XLSX : openpyxl n'interprète comme formule que les valeurs commençant par =."""
+    if isinstance(value, str) and value.startswith("="):
         return "'" + value
     return value
 
@@ -31,7 +53,7 @@ def to_csv(headers: list[str], rows: list[list]) -> bytes:
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(headers)
     for row in rows:
-        writer.writerow([neutralise_formula(value) for value in row])
+        writer.writerow([neutralise_csv(value) for value in row])
     return buffer.getvalue().encode("utf-8-sig")
 
 
@@ -40,7 +62,7 @@ def to_xlsx(headers: list[str], rows: list[list]) -> bytes:
     sheet = workbook.active
     sheet.append(headers)
     for row in rows:
-        sheet.append([neutralise_formula(value) for value in row])
+        sheet.append([neutralise_xlsx(value) for value in row])
 
     buffer = io.BytesIO()
     workbook.save(buffer)

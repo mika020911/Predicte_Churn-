@@ -9,6 +9,7 @@ from app.models.risk_settings import RiskSettings
 from app.models.prediction import Prediction
 from app.models.alert import Alert
 from app.models.password_reset_token import PasswordResetToken
+from app.models.user_invitation import UserInvitation
 
 __all__ = [
     "Base",
@@ -21,4 +22,5 @@ __all__ = [
     "Prediction",
     "Alert",
     "PasswordResetToken",
+    "UserInvitation",
 ]

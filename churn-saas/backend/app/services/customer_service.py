@@ -20,9 +20,8 @@ def _active_predictions_query(db: Session, organization_id: int):
     )
 
 
-def list_customers(db: Session, organization_id: int, zone: Optional[str], page: int, page_size: int, search: Optional[str]=None) -> dict:
-    """Liste paginée, triée par score décroissant, filtrable par zone de risque."""
-    query = _active_predictions_query(db, organization_id)
+def _apply_filters(query, zone: Optional[str], search: Optional[str]):
+    """Filtres communs à la liste et à l'export (zone + nom/identifiant externe)."""
     if zone:
         query = query.filter(Prediction.risk_level == zone)
 
@@ -32,6 +31,14 @@ def list_customers(db: Session, organization_id: int, zone: Optional[str], page:
         query = query.filter(
             (Customer.name.ilike(pattern)) | (Customer.external_id.ilike(pattern))
         )
+    return query
+
+
+def list_customers(db: Session, organization_id: int, zone: Optional[str], page: int, page_size: int, search: Optional[str]=None) -> dict:
+    """Liste paginée, triée par score décroissant, filtrable par zone de risque."""
+    query = _apply_filters(
+        _active_predictions_query(db, organization_id), zone, search
+    )
 
     total = query.count()
     rows = (
@@ -136,25 +143,22 @@ def export_customers(
     zone: Optional[str],
     search: Optional[str],
     limit: int,
-) -> list[list]:
-    """Lignes d'export des clients, mêmes filtres et tri que la liste (plafonnées)."""
-    query = _active_predictions_query(db, organization_id)
-    if zone:
-        query = query.filter(Prediction.risk_level == zone)
+) -> tuple[list[list], bool]:
+    """Lignes d'export (mêmes filtres que la liste) et indicateur de troncature."""
+    query = _apply_filters(
+        _active_predictions_query(db, organization_id), zone, search
+    )
 
-    search_term = (search or "").strip()
-    if search_term:
-        pattern = f"%{search_term}%"
-        query = query.filter(
-            (Customer.name.ilike(pattern)) | (Customer.external_id.ilike(pattern))
-        )
-
+    # +1 ligne : permet de savoir si le plafond a été atteint.
     rows = (
         query.order_by(Prediction.score.desc(), Customer.id)
-        .limit(limit)
+        .limit(limit + 1)
         .all()
     )
-    return [
+    truncated = len(rows) > limit
+    rows = rows[:limit]
+
+    export_rows = [
         [
             customer.id,
             customer.external_id,
@@ -169,6 +173,7 @@ def export_customers(
         ]
         for customer, prediction, snapshot_date in rows
     ]
+    return export_rows, truncated
 
 
 def get_customer_history(

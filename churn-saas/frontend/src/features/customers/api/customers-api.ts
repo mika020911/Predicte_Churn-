@@ -1,4 +1,4 @@
-import { downloadFile } from "@/shared/lib/download";
+import { downloadFile, type DownloadResult } from "@/shared/lib/download";
 import type {
     CustomerDetail,
     CustomerHistoryResponse,
@@ -100,13 +100,13 @@ export async function exportCustomers(
     token: string,
     params: CustomerListParams = {},
     format: "csv" | "xlsx" = "csv",
-): Promise<void> {
+): Promise<DownloadResult> {
     const query = new URLSearchParams();
     if (params.search?.trim()) query.append("search", params.search.trim());
     if (params.zone) query.append("zone", params.zone);
     query.set("format", format);
 
-    await downloadFile(
+    return downloadFile(
         token,
         `${API_URL}/customers/export?${query.toString()}`,
         `clients.${format}`,

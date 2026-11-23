@@ -52,3 +52,24 @@ export interface CustomerDetail extends Customer {
     shap_values: Record<string, number>;
     observation: CustomerObservation;
 }
+
+export interface SimulationPayload {
+    tenure_months?: number;
+    contract_type?: 0 | 1;
+    mrr_change_pct?: number;
+    support_tickets_30d?: number;
+    recency_days?: number;
+    frequency_trend_30d?: number;
+    engagement_breadth?: number;
+    payment_failures_90d?: number;
+    plan_tier_rank?: number;
+}
+
+export interface SimulationResult {
+    baseline_score: number;
+    simulated_score: number;
+    delta: number;
+    risk_level: RiskZone;
+    top_reasons: RiskReason[];
+    shap_values: Record<string, number>;
+}

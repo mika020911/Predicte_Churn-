@@ -2,6 +2,8 @@ import type {
     CustomerDetail,
     CustomerListParams,
     CustomerListResponse,
+    SimulationPayload,
+    SimulationResult,
 }from "../types";
 
 const API_URL =
@@ -58,6 +60,34 @@ export async function getCustomer(
             typeof body.detail === "string"
                 ? body.detail
                 : "Impossible de charger la fiche du client.";
+        throw new Error(detail);
+    }
+
+    return response.json();
+}
+export async function simulateCustomer(
+    token: string,
+    customerId: number,
+    payload: SimulationPayload,
+): Promise<SimulationResult> {
+    const response = await fetch(
+        `${API_URL}/customers/${customerId}/simulate`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        },
+    );
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const detail =
+            typeof body.detail === "string"
+                ? body.detail
+                : "Impossible de simuler un nouveau score.";
         throw new Error(detail);
     }
 

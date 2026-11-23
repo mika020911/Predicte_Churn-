@@ -12,6 +12,7 @@ import {
   zoneLabel,
 } from "../risk";
 import type { CustomerDetail as CustomerDetailData } from "../types";
+import { ScoreSimulator } from "./score-simulator";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("fr-FR", {
@@ -66,7 +67,7 @@ const OBSERVATION_KEYS: MetricKey[] = [
 
 export function CustomerDetail() {
   const params = useParams<{ id: string }>();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   const [customer, setCustomer] = useState<CustomerDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,6 +250,13 @@ export function CustomerDetail() {
           ))}
         </dl>
       </section>
+
+      {user && user.role !== "viewer" && (
+        <ScoreSimulator
+          customerId={customer.customer_id}
+          observation={customer.observation}
+        />
+      )}
 
       <section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-black">

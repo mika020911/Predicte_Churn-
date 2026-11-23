@@ -17,6 +17,7 @@ from app.services.import_service import (
     build_import_preview,
     compute_plan_ranks,
     normalize,
+    plan_order_from_ranks,
     process_csv_import,
     validate_column_mapping,
 )
@@ -186,6 +187,19 @@ def list_import_batches(
         )
         for b in batches
     ]
+
+@router.get("/plans", response_model=List[str])
+def list_plan_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Plans de l'organisation, du moins cher au plus cher (clés de plan_mapping).
+
+    Déclaré avant /{import_batch_id} pour ne pas être capturé comme un identifiant.
+    """
+    org = db.get(Organization, current_user.organization_id)
+    return plan_order_from_ranks(org.plan_mapping)
+
 
 @router.get("/{import_batch_id}", response_model = ImportBatchRead)
 def get_import_batch_detail(

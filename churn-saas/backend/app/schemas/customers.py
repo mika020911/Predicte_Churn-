@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -49,5 +49,33 @@ class CustomerListResponse(BaseModel):
     page_size:int
     total_pages:int
     zone_counts:Dict[str,int]
+
+
+class SimulationIn(BaseModel):
+    """Valeurs à simuler. Un champ absent reprend la valeur de l'observation active.
+
+    Aucune valeur n'est écrite en base : c'est un calcul à la volée.
+    """
+
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    tenure_months: Optional[int] = Field(None, ge=0)
+    contract_type: Optional[Literal[0, 1]] = None
+    mrr_change_pct: Optional[float] = None
+    support_tickets_30d: Optional[int] = Field(None, ge=0)
+    recency_days: Optional[int] = Field(None, ge=0)
+    frequency_trend_30d: Optional[float] = None
+    engagement_breadth: Optional[float] = Field(None, ge=0, le=1)
+    payment_failures_90d: Optional[int] = Field(None, ge=0)
+    plan_tier_rank: Optional[float] = Field(None, ge=0, le=1)
+
+
+class SimulationRead(BaseModel):
+    baseline_score: float
+    simulated_score: float
+    delta: float
+    risk_level: str
+    top_reasons: List[RiskReason] = Field(default_factory=list)
+    shap_values: Dict[str, float] = Field(default_factory=dict)
 
 

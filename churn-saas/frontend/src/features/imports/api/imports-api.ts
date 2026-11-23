@@ -132,3 +132,22 @@ export async function getImportDetails(
 
   return response.json();
 }
+export async function getPlanOptions(token: string): Promise<string[]> {
+  const response = await fetch(`${API_URL}/imports/plans`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof body.detail === "string"
+        ? body.detail
+        : "Impossible de charger les plans de l’organisation.",
+    );
+  }
+
+  return response.json();
+}

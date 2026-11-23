@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { canManageSettings } from "@/features/auth/permissions";
 import { getRiskSettings, updateRiskSettings } from "../api/risk-settings-api";
 
 function formatDate(value: string | null): string {
@@ -18,7 +19,7 @@ function toPercent(value: string): number {
 
 export function RiskSettingsForm() {
   const { token, user, loading: authLoading } = useAuth();
-  const canEdit = user?.role === "admin";
+  const canEdit = canManageSettings(user?.role);
 
   const [thresholdMedium, setThresholdMedium] = useState("");
   const [thresholdHigh, setThresholdHigh] = useState("");

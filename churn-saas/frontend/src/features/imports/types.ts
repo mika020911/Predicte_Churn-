@@ -50,3 +50,7 @@ export interface ImportPreview {
   problems: string[];
   confirmed: boolean;
 }
+export interface PlanOption {
+  name: string;
+  rank: number;
+}

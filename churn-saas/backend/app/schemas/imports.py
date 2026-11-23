@@ -39,6 +39,14 @@ class ImportBatchSummary(BaseModel):
     error_rows: int
     created_at: datetime
 
+
+class PlanOption(BaseModel):
+    """Plan de l'organisation et son rang de gamme (0 = entrée, 1 = haut de gamme)."""
+
+    name: str
+    rank: float
+
+
 class ImportMappingIn(BaseModel):
     column_mapping: Dict[str, Optional[str]] = {}
     contract_values: Dict[str, Literal[0, 1]] = {}

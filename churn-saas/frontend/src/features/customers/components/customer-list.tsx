@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
-import { getCustomers } from "../api/customers-api";
+import { exportCustomers, getCustomers } from "../api/customers-api";
 import { formatScore, zoneBadgeClass, zoneLabel } from "../risk";
 import type { CustomerListResponse, RiskZone } from "../types";
 
@@ -27,6 +27,7 @@ export function CustomerList() {
   const [zone, setZone] = useState<ZoneFilter>("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<"csv" | "xlsx" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Attend 300 ms après la saisie avant de déclencher la recherche.
@@ -77,15 +78,57 @@ export function CustomerList() {
     setPage(1);
   }
 
+  async function handleExport(format: "csv" | "xlsx") {
+    if (!token) return;
+    setExporting(format);
+    setError(null);
+    try {
+      await exportCustomers(
+        token,
+        {
+          search,
+          zone: zone === "all" ? undefined : zone,
+        },
+        format,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "L’export a échoué.",
+      );
+    } finally {
+      setExporting(null);
+    }
+  }
+
   const totalPages = data?.total_pages ?? 0;
 
   return (
     <section className="mx-auto max-w-6xl space-y-6 p-6 text-black">
-      <header>
-        <h1 className="text-3xl font-bold text-black">Clients</h1>
-        <p className="mt-1 text-black">
-          Recherche et suivi du risque de départ.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-black">Clients</h1>
+          <p className="mt-1 text-black">
+            Recherche et suivi du risque de départ.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void handleExport("csv")}
+            disabled={!token || exporting !== null}
+            className="rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50 disabled:opacity-50"
+          >
+            {exporting === "csv" ? "Export…" : "Exporter CSV"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExport("xlsx")}
+            disabled={!token || exporting !== null}
+            className="rounded-xl bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-950 disabled:opacity-50"
+          >
+            {exporting === "xlsx" ? "Export…" : "Exporter Excel"}
+          </button>
+        </div>
       </header>
 
       <label className="block">

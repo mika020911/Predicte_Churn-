@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { canWrite } from "@/features/auth/permissions";
 import { getCustomer } from "../api/customers-api";
 import {
   featureLabel,
@@ -13,6 +14,7 @@ import {
 } from "../risk";
 import type { CustomerDetail as CustomerDetailData } from "../types";
 import { ScoreSimulator } from "./score-simulator";
+import { CustomerHistory } from "./customer-history";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("fr-FR", {
@@ -251,7 +253,9 @@ export function CustomerDetail() {
         </dl>
       </section>
 
-      {user && user.role !== "viewer" && (
+      <CustomerHistory customerId={customer.customer_id} />
+
+      {canWrite(user?.role) && (
         <ScoreSimulator
           customerId={customer.customer_id}
           observation={customer.observation}

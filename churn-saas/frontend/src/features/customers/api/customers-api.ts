@@ -1,5 +1,7 @@
+import { downloadFile } from "@/shared/lib/download";
 import type {
     CustomerDetail,
+    CustomerHistoryResponse,
     CustomerListParams,
     CustomerListResponse,
     SimulationPayload,
@@ -88,6 +90,49 @@ export async function simulateCustomer(
             typeof body.detail === "string"
                 ? body.detail
                 : "Impossible de simuler un nouveau score.";
+        throw new Error(detail);
+    }
+
+    return response.json();
+}
+
+export async function exportCustomers(
+    token: string,
+    params: CustomerListParams = {},
+    format: "csv" | "xlsx" = "csv",
+): Promise<void> {
+    const query = new URLSearchParams();
+    if (params.search?.trim()) query.append("search", params.search.trim());
+    if (params.zone) query.append("zone", params.zone);
+    query.set("format", format);
+
+    await downloadFile(
+        token,
+        `${API_URL}/customers/export?${query.toString()}`,
+        `clients.${format}`,
+    );
+}
+
+export async function getCustomerHistory(
+    token: string,
+    customerId: number,
+): Promise<CustomerHistoryResponse> {
+    const response = await fetch(
+        `${API_URL}/customers/${customerId}/history`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+        },
+    );
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const detail =
+            typeof body.detail === "string"
+                ? body.detail
+                : "Impossible de charger l’historique du client.";
         throw new Error(detail);
     }
 

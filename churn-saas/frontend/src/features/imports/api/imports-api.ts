@@ -1,4 +1,5 @@
-import type { ImportBatch, ImportBatchSummary } from "../types";
+import { downloadFile } from "@/shared/lib/download";
+import type { ImportBatch, ImportBatchSummary, PlanOption } from "../types";
 import type { ImportPreview } from "../types";
 
 
@@ -132,7 +133,7 @@ export async function getImportDetails(
 
   return response.json();
 }
-export async function getPlanOptions(token: string): Promise<string[]> {
+export async function getPlanOptions(token: string): Promise<PlanOption[]> {
   const response = await fetch(`${API_URL}/imports/plans`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -150,4 +151,16 @@ export async function getPlanOptions(token: string): Promise<string[]> {
   }
 
   return response.json();
+}
+
+export async function exportImportReport(
+  token: string,
+  importId: number,
+  format: "csv" | "xlsx" = "csv",
+): Promise<void> {
+  await downloadFile(
+    token,
+    `${API_URL}/imports/${importId}/export?format=${format}`,
+    `import_${importId}_anomalies.${format}`,
+  );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { canManageSettings } from "@/features/auth/permissions";
 
 type NavItem = {
   href: string;
@@ -57,7 +58,7 @@ export function DashboardNav({
   const pathname = usePathname();
   const { user } = useAuth();
   const visibleItems = navItems.filter(
-    (item) => !item.adminOnly || user?.role === "admin",
+    (item) => !item.adminOnly || canManageSettings(user?.role),
   );
 
   return (

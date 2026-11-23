@@ -73,3 +73,17 @@ export interface SimulationResult {
     top_reasons: RiskReason[];
     shap_values: Record<string, number>;
 }
+export interface CustomerHistoryItem {
+    prediction_id: number;
+    snapshot_date: string;
+    score: number;
+    risk_level: RiskZone;
+    top_reasons: RiskReason[];
+    model_version: string | null;
+    delta: number | null;
+}
+
+export interface CustomerHistoryResponse {
+    customer_id: number;
+    items: CustomerHistoryItem[];
+}

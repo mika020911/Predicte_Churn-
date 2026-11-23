@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional
+from typing import List, Literal, Optional
 import logging
 from app.services.prediction_service import generate_predictions_for_batch
  
@@ -11,7 +11,13 @@ from app.api.deps import get_current_active_user, get_db, require_roles
 from app.config import settings
 from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
 from app.models import ImportBatch, Organization, User
-from app.schemas.imports import ImportBatchRead, ImportBatchSummary, ImportMappingIn
+from app.schemas.imports import (
+    ImportBatchRead,
+    ImportBatchSummary,
+    ImportMappingIn,
+    PlanOption,
+)
+from app.services import export_service
 from app.services.import_service import (
     build_csv_template,
     build_import_preview,
@@ -46,15 +52,16 @@ async def _read_tabular_upload(file: UploadFile) -> bytes:
             status.HTTP_400_BAD_REQUEST,
             "Seuls les fichiers .csv et .xlsx sont autorisés.",
         )
-    file_bytes = await file.read()
-    if len(file_bytes) == 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Le fichier téléversé est vide.")
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    # +1 octet : permet de détecter un dépassement sans charger tout le fichier.
+    file_bytes = await file.read(max_bytes + 1)
     if len(file_bytes) > max_bytes:
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE,
             f"Fichier trop volumineux : {settings.max_upload_size_mb} Mo maximum.",
         )
+    if len(file_bytes) == 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Le fichier téléversé est vide.")
     return file_bytes
 
 @router.get("/template")
@@ -188,17 +195,64 @@ def list_import_batches(
         for b in batches
     ]
 
-@router.get("/plans", response_model=List[str])
+@router.get("/plans", response_model=List[PlanOption])
 def list_plan_options(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Plans de l'organisation, du moins cher au plus cher (clés de plan_mapping).
+    """Plans de l'organisation, du moins cher au plus cher, avec leur rang de gamme.
 
     Déclaré avant /{import_batch_id} pour ne pas être capturé comme un identifiant.
     """
     org = db.get(Organization, current_user.organization_id)
-    return plan_order_from_ranks(org.plan_mapping)
+    order = plan_order_from_ranks(org.plan_mapping)
+    ranks = compute_plan_ranks(order)
+    return [{"name": name, "rank": ranks[name]} for name in order]
+
+
+@router.get("/{import_batch_id}/export")
+def export_import_report(
+    import_batch_id: int,
+    format: Literal["csv", "xlsx"] = "csv",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Export du rapport d'anomalies d'un import (isolation multi-tenant)."""
+    batch = (
+        db.query(ImportBatch)
+        .filter(
+            ImportBatch.id == import_batch_id,
+            ImportBatch.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+    if not batch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lot d'import introuvable.",
+        )
+
+    headers = ["row_number", "external_id", "error_type", "message"]
+    rows = [
+        [
+            anomaly.get("row_number"),
+            anomaly.get("external_id") or "",
+            anomaly.get("error_type") or "",
+            anomaly.get("message") or "",
+        ]
+        for anomaly in (batch.anomaly_report or [])
+    ]
+    content, media_type, extension = export_service.render_export(
+        format, headers, rows
+    )
+    filename = export_service.export_filename(
+        f"import_{batch.id}_anomalies", extension
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{import_batch_id}", response_model = ImportBatchRead)

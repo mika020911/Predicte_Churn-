@@ -110,3 +110,15 @@ def test_read_me_unauthorized(client):
     """Test qu'un appel /me sans token ou avec un token invalide retourne une 401."""
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 401
+
+def test_public_register_ignores_a_client_supplied_role(client):
+    """Le rôle vient du serveur : un « role » dans le corps ne doit pas être pris en compte."""
+    response = client.post("/api/v1/auth/register", json={
+        "email": "role-injection@company.com",
+        "password": "Password123!",
+        "full_name": "Role Injection",
+        "organization_name": "Role Injection Org",
+        "role": "viewer",
+    })
+    assert response.status_code == 201
+    assert response.json()["role"] == "admin"

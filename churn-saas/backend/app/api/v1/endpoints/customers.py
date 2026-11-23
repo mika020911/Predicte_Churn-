@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -9,11 +9,12 @@ from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
 from app.models import User
 from app.schemas.customers import (
     CustomerDetailRead,
+    CustomerHistoryRead,
     CustomerListResponse,
     SimulationIn,
     SimulationRead,
 )
-from app.services import customer_service, simulation_service
+from app.services import customer_service, export_service, simulation_service
 
 router = APIRouter(prefix="/customers", tags=["Clients"])
 
@@ -37,6 +38,50 @@ def list_customers(
     return customer_service.list_customers(db, current_user.organization_id, zone, page, page_size, search,)
 
 
+EXPORT_HEADERS = [
+    "customer_id",
+    "external_id",
+    "name",
+    "email",
+    "phone_number",
+    "score",
+    "risk_level",
+    "snapshot_date",
+    "model_version",
+    "top_reasons",
+]
+
+
+@router.get("/export")
+def export_customers(
+    format: Literal["csv", "xlsx"] = Query("csv"),
+    zone: Optional[Literal["low", "medium", "high"]] = Query(None),
+    search: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Export des clients filtrés (mêmes filtres que la liste), plafonné à 50 000 lignes.
+
+    Déclaré avant /{customer_id} pour ne pas être capturé comme un identifiant.
+    """
+    rows = customer_service.export_customers(
+        db,
+        current_user.organization_id,
+        zone,
+        search,
+        export_service.MAX_EXPORT_ROWS,
+    )
+    content, media_type, extension = export_service.render_export(
+        format, EXPORT_HEADERS, rows
+    )
+    filename = export_service.export_filename("clients", extension)
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/{customer_id}", response_model=CustomerDetailRead)
 def get_customer(
     customer_id: int,
@@ -53,6 +98,24 @@ def get_customer(
             detail="Client introuvable ou sans prédiction active.",
         )
     return detail
+
+
+@router.get("/{customer_id}/history", response_model=CustomerHistoryRead)
+def get_customer_history(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Toutes les prédictions du client, de la plus ancienne à la plus récente."""
+    history = customer_service.get_customer_history(
+        db, current_user.organization_id, customer_id
+    )
+    if history is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client introuvable.",
+        )
+    return history
 
 
 @router.post("/{customer_id}/simulate", response_model=SimulationRead)

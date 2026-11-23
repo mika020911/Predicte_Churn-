@@ -245,3 +245,8 @@ def test_simulation_writes_nothing(client, db_session, admin_headers):
     db_session.expire_all()
     assert db_session.query(Prediction).count() == predictions_before
     assert db_session.query(Observation).count() == observations_before
+
+
+def test_simulation_requires_a_token(client):
+    response = client.post("/api/v1/customers/1/simulate", json={})
+    assert response.status_code == 401

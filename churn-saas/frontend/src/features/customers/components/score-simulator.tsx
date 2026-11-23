@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { getPlanOptions } from "@/features/imports/api/imports-api";
+import type { PlanOption } from "@/features/imports/types";
 import { simulateCustomer } from "../api/customers-api";
 import { formatScore, zoneBadgeClass, zoneLabel } from "../risk";
 import type {
@@ -60,8 +61,9 @@ function initialValues(observation: CustomerObservation): SimulationValues {
   };
 }
 
-function rankFor(index: number, count: number): number {
-  return count <= 1 ? 0.5 : index / (count - 1);
+function planLabel(name: string): string {
+  if (!name) return name;
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 function formatDelta(delta: number): string {
@@ -81,7 +83,7 @@ export function ScoreSimulator({
   const baseline = useMemo(() => initialValues(observation), [observation]);
 
   const [values, setValues] = useState<SimulationValues>(baseline);
-  const [plans, setPlans] = useState<string[]>([]);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export function ScoreSimulator({
 
   const planDisabled = plans.length <= 1;
   const selectedPlanIndex = plans.findIndex(
-    (_, index) => Math.abs(rankFor(index, plans.length) - values.plan_tier_rank) < 0.0001,
+    (plan) => Math.abs(plan.rank - values.plan_tier_rank) < 0.0001,
   );
 
   return (
@@ -212,18 +214,17 @@ export function ScoreSimulator({
             value={selectedPlanIndex >= 0 ? selectedPlanIndex : ""}
             disabled={planDisabled}
             onChange={(event) =>
-              update(
-                "plan_tier_rank",
-                rankFor(Number(event.target.value), plans.length),
-              )
+              update("plan_tier_rank", plans[Number(event.target.value)].rank)
             }
             className="w-full rounded-xl border border-blue-200 px-3 py-2 text-black outline-none disabled:bg-slate-100 focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
           >
             {plans.length === 0 && <option value="">Non renseigné</option>}
-            {plans.length === 1 && <option value={0}>{plans[0]}</option>}
+            {plans.length === 1 && (
+              <option value={0}>{planLabel(plans[0].name)}</option>
+            )}
             {plans.map((plan, index) => (
-              <option key={plan} value={index}>
-                {plan}
+              <option key={plan.name} value={index}>
+                {planLabel(plan.name)}
               </option>
             ))}
             {plans.length > 1 && selectedPlanIndex < 0 && (

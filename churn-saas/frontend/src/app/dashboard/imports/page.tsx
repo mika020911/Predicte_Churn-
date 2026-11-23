@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/features/auth/context/auth-context";
+import { canImport } from "@/features/auth/permissions";
 import { ImportMappingForm } from "@/features/imports/components/import-mapping-form";
 
 export default function ImportsPage() {
@@ -10,7 +11,7 @@ export default function ImportsPage() {
     return <main className="p-6 text-black">Chargement…</main>;
   }
 
-  if (!user || user.role === "viewer") {
+  if (!canImport(user?.role)) {
     return (
       <main className="mx-auto max-w-3xl space-y-3 p-6 text-black">
         <h1 className="text-2xl font-bold text-black">Import de fichiers</h1>

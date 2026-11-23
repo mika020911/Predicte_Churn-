@@ -79,3 +79,18 @@ class SimulationRead(BaseModel):
     shap_values: Dict[str, float] = Field(default_factory=dict)
 
 
+class CustomerHistoryItem(BaseModel):
+    prediction_id: int
+    snapshot_date: date
+    score: float
+    risk_level: str
+    top_reasons: List[RiskReason] = Field(default_factory=list)
+    model_version: Optional[str] = None
+    delta: Optional[float] = None
+
+
+class CustomerHistoryRead(BaseModel):
+    customer_id: int
+    items: List[CustomerHistoryItem] = Field(default_factory=list)
+
+

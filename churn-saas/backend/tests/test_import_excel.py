@@ -1,13 +1,14 @@
 """Tests de l'import Excel : lecture XLSX, fichier invalide, plafond de taille."""
 
 import io
+from datetime import date, datetime
 
 import pandas as pd
 
 from app.config import settings
 from app.models import Observation
 
-from tests.helpers import login_headers, register_admin
+from tests.helpers import create_user, login_headers, register_admin
 
 HEADER = [
     "customer_id",
@@ -125,3 +126,61 @@ def test_unsupported_extension_is_rejected(client):
     )
 
     assert response.status_code == 400
+
+
+def test_xlsx_with_real_datetime_and_numeric_cells(client, db_session):
+    admin = register_admin(client, email="xlsx-typed@example.com")
+    headers = login_headers(client, admin["email"])
+
+    frame = pd.DataFrame(
+        [
+            {
+                "customer_id": "TYPED",
+                "snapshot_date": datetime(2026, 1, 15, 0, 0),
+                "tenure_months": 12,
+                "contract_type": "mensuel",
+                "mrr_change_pct": 1.5,
+                "support_tickets_30d": 3,
+                "recency_days": 7,
+                "frequency_trend_30d": 0.95,
+                "engagement_breadth": 0.6,
+                "payment_failures_90d": 1,
+            }
+        ]
+    )
+    buffer = io.BytesIO()
+    frame.to_excel(buffer, index=False, engine="openpyxl")
+
+    response = client.post(
+        "/api/v1/imports/upload",
+        headers=headers,
+        files=xlsx_upload(buffer.getvalue()),
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["status"] == "completed"
+    observation = db_session.query(Observation).one()
+    assert observation.snapshot_date == date(2026, 1, 15)
+    assert observation.tenure_months == 12
+    assert observation.engagement_breadth == 0.6
+
+
+def test_viewer_cannot_preview_or_upload(client, db_session):
+    admin = register_admin(client, email="xlsx-viewer-admin@example.com")
+    create_user(
+        db_session,
+        organization_id=admin["organization_id"],
+        email="xlsx-viewer@example.com",
+        role="viewer",
+    )
+    headers = login_headers(client, "xlsx-viewer@example.com")
+
+    preview = client.post(
+        "/api/v1/imports/preview", headers=headers, files=xlsx_upload(xlsx_bytes())
+    )
+    upload = client.post(
+        "/api/v1/imports/upload", headers=headers, files=xlsx_upload(xlsx_bytes())
+    )
+
+    assert preview.status_code == 403
+    assert upload.status_code == 403

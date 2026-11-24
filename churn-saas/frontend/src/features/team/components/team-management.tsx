@@ -436,7 +436,7 @@ export function TeamManagement() {
                 <p className="text-sm text-black">
                   {createdInvitation.email_sent
                     ? "L’email d’invitation a été envoyé."
-                    : "L’email n’a pas pu être envoyé : transmets ce lien manuellement."}
+                    : "Email non envoyé : copiez le lien ci-dessous"}
                 </p>
                 <p className="text-xs text-orange-900">
                   Ce lien ne sera plus affiché : copie-le maintenant.

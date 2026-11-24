@@ -3,6 +3,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
+import {
+  PASSWORD_HELP,
+  PASSWORD_MAX_LENGTH,
+  passwordRuleError,
+} from "@/features/auth/password";
 import { previewInvitation } from "../api/team-api";
 import type { InvitationPreview } from "../types";
 
@@ -75,8 +80,9 @@ export function AcceptInvitationForm() {
       return;
     }
 
-    if (password.length < 12) {
-      setError("Le mot de passe doit contenir au moins 12 caractères.");
+    const passwordError = passwordRuleError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -146,12 +152,15 @@ export function AcceptInvitationForm() {
               type="password"
               required
               minLength={12}
-              maxLength={128}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-md border border-slate-400 px-3 py-2 text-black"
               autoComplete="new-password"
             />
+            <span className="mt-1 block text-xs text-black">
+              {PASSWORD_HELP}
+            </span>
           </label>
 
           <label className="block">
@@ -162,7 +171,7 @@ export function AcceptInvitationForm() {
               type="password"
               required
               minLength={12}
-              maxLength={128}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
               className="w-full rounded-md border border-slate-400 px-3 py-2 text-black"

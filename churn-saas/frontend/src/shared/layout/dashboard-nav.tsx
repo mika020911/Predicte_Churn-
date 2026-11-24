@@ -16,6 +16,11 @@ const navItems: NavItem[] = [
   { href: "/dashboard", label: "Vue d’ensemble", icon: "/icons/maison.png" },
   { href: "/dashboard/customers", label: "Clients", icon: "/icons/client.png" },
   {
+    href: "/dashboard/actions",
+    label: "Actions",
+    icon: "/icons/historique.png",
+  },
+  {
     href: "/dashboard/imports",
     label: "Importer des fichiers",
     icon: "/icons/importation-de-fichiers.png",

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { canWrite } from "@/features/auth/permissions";
+import { RetentionPanel } from "@/features/retention/components/retention-panel";
 import { getCustomer } from "../api/customers-api";
 import {
   featureLabel,
@@ -206,6 +207,13 @@ export function CustomerDetail() {
           </p>
         </article>
       </section>
+
+      <RetentionPanel
+        customerId={customer.customer_id}
+        retentionStatus={customer.retention_status}
+        ownerUserId={customer.owner_user_id}
+        suggestedActions={customer.suggested_actions}
+      />
 
       <section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-black">

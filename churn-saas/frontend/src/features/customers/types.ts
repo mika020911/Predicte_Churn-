@@ -1,3 +1,8 @@
+import type {
+    RetentionStatus,
+    SuggestedAction,
+} from "@/features/retention/types";
+
 export type RiskZone = "low" | "medium" | "high";
 
 export interface RiskReason {
@@ -51,6 +56,9 @@ export interface CustomerDetail extends Customer {
     phone_number: string | null;
     shap_values: Record<string, number>;
     observation: CustomerObservation;
+    retention_status: RetentionStatus;
+    owner_user_id: number | null;
+    suggested_actions: SuggestedAction[];
 }
 
 export interface SimulationPayload {

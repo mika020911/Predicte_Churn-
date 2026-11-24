@@ -3,6 +3,11 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
+import {
+  PASSWORD_HELP,
+  PASSWORD_MAX_LENGTH,
+  passwordRuleError,
+} from "@/features/auth/password";
 
 export function RegisterForm() {
   const { register } = useAuth();
@@ -17,6 +22,13 @@ export function RegisterForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    const passwordError = passwordRuleError(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -173,13 +185,16 @@ export function RegisterForm() {
                   type="password"
                   required
                   minLength={12}
-                  maxLength={128}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   autoComplete="new-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Au moins 12 caractères"
                   className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-black outline-none placeholder:text-black focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
                 />
+                <span className="mt-1 block text-xs text-black">
+                  {PASSWORD_HELP}
+                </span>
               </label>
 
               <button

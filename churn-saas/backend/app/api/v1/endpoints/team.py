@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
-from app.core.roles import ROLE_ADMIN
+from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
 from app.models import Organization, User, UserInvitation
 from app.schemas.team import (
     InvitationCreate,
@@ -94,9 +94,13 @@ def _ensure_admin_remains(
 @router.get("", response_model=List[UserRead])
 def list_members(
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_only),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
 ):
-    """Membres de l'organisation, actifs et désactivés."""
+    """Membres de l'organisation, actifs et désactivés.
+
+    Lecture ouverte aux analystes (nécessaire à l'attribution des actions de
+    rétention) ; les écritures et les invitations restent réservées aux admins.
+    """
     return (
         db.query(User)
         .filter(User.organization_id == current_user.organization_id)

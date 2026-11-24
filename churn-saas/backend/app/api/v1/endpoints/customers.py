@@ -1,4 +1,5 @@
-from typing import Literal, Optional
+from datetime import datetime, timezone
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.concurrency import run_in_threadpool
@@ -6,13 +7,19 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db, require_roles
 from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
-from app.models import User
+from app.models import Customer, CustomerAction, User
 from app.schemas.customers import (
     CustomerDetailRead,
     CustomerHistoryRead,
     CustomerListResponse,
     SimulationIn,
     SimulationRead,
+)
+from app.schemas.retention import (
+    CustomerActionCreate,
+    CustomerActionRead,
+    CustomerRetentionRead,
+    CustomerRetentionUpdate,
 )
 from app.services import customer_service, export_service, simulation_service
 
@@ -141,3 +148,116 @@ async def simulate_customer(
             detail="Client introuvable ou sans prédiction active.",
         )
     return result
+
+
+def _get_customer(db: Session, organization_id: int, customer_id: int) -> Customer:
+    customer = (
+        db.query(Customer)
+        .filter(
+            Customer.id == customer_id,
+            Customer.organization_id == organization_id,
+        )
+        .first()
+    )
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client introuvable.",
+        )
+    return customer
+
+
+@router.patch("/{customer_id}", response_model=CustomerRetentionRead)
+def update_customer_retention(
+    customer_id: int,
+    payload: CustomerRetentionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
+):
+    """Met à jour le statut de rétention et le propriétaire du suivi.
+
+    Le statut se change à la main ; les actions, elles, alimentent un journal.
+    """
+    customer = _get_customer(db, current_user.organization_id, customer_id)
+
+    if "owner_user_id" in payload.model_fields_set:
+        owner_id = payload.owner_user_id
+        if owner_id is not None:
+            owner = (
+                db.query(User)
+                .filter(
+                    User.id == owner_id,
+                    User.organization_id == current_user.organization_id,
+                )
+                .first()
+            )
+            if owner is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Le propriétaire doit appartenir à la même organisation."
+                    ),
+                )
+        customer.owner_user_id = owner_id
+
+    if payload.retention_status is not None:
+        customer.retention_status = payload.retention_status
+
+    db.commit()
+    db.refresh(customer)
+    return {
+        "customer_id": customer.id,
+        "external_id": customer.external_id,
+        "name": customer.name,
+        "retention_status": customer.retention_status,
+        "owner_user_id": customer.owner_user_id,
+    }
+
+
+@router.get(
+    "/{customer_id}/actions", response_model=List[CustomerActionRead]
+)
+def list_customer_actions(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Journal des actions de rétention d'un client de l'organisation."""
+    _get_customer(db, current_user.organization_id, customer_id)
+    return (
+        db.query(CustomerAction)
+        .filter(CustomerAction.customer_id == customer_id)
+        .order_by(CustomerAction.created_at.desc(), CustomerAction.id.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{customer_id}/actions",
+    response_model=CustomerActionRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_customer_action(
+    customer_id: int,
+    payload: CustomerActionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_ANALYST)),
+):
+    """Ajoute une action au journal du client."""
+    _get_customer(db, current_user.organization_id, customer_id)
+
+    action = CustomerAction(
+        customer_id=customer_id,
+        created_by_user_id=current_user.id,
+        action_type=payload.action_type,
+        status=payload.status,
+        note=payload.note,
+        due_date=payload.due_date,
+        completed_at=(
+            datetime.now(timezone.utc) if payload.status == "done" else None
+        ),
+    )
+    db.add(action)
+    db.commit()
+    db.refresh(action)
+    return action

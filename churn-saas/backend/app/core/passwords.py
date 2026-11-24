@@ -5,7 +5,8 @@ from typing import Annotated
 from pydantic import AfterValidator
 
 PASSWORD_MIN_LENGTH = 12
-PASSWORD_MAX_LENGTH = 128
+# bcrypt refuse les mots de passe de plus de 72 octets UTF-8.
+PASSWORD_MAX_BYTES = 72
 
 
 def validate_password(value: str) -> str:
@@ -13,9 +14,10 @@ def validate_password(value: str) -> str:
         raise ValueError(
             f"Le mot de passe doit contenir au moins {PASSWORD_MIN_LENGTH} caractères."
         )
-    if len(value) > PASSWORD_MAX_LENGTH:
+    if len(value.encode("utf-8")) > PASSWORD_MAX_BYTES:
         raise ValueError(
-            f"Le mot de passe ne doit pas dépasser {PASSWORD_MAX_LENGTH} caractères."
+            "Le mot de passe ne doit pas dépasser 72 octets en UTF-8 "
+            "(limite de bcrypt)."
         )
     return value
 

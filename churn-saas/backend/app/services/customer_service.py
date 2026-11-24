@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Customer, Observation, Prediction
+from app.services import retention_service
 
 ZONES = ("low", "medium", "high")
 
@@ -109,6 +110,11 @@ def get_customer_detail(db: Session, organization_id: int, customer_id: int) -> 
         "shap_values": prediction.shap_values or {},
         "model_version": prediction.model_version,
         "observation": observation,
+        "retention_status": customer.retention_status or "none",
+        "owner_user_id": customer.owner_user_id,
+        "suggested_actions": retention_service.suggest_actions(
+            observation, prediction.top_reasons
+        ),
     }
 
 

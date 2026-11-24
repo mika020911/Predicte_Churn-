@@ -25,7 +25,7 @@ def _send_email(recipient: str, subject: str, body: str) -> bool:
     """Envoie un email et renvoie True/False. Ne journalise jamais le corps."""
     if settings.email_dry_run:
         logger.info("Email non envoyé (dry-run) à %s : %s", recipient, subject)
-        return True
+        return False
 
     if not _smtp_is_configured():
         logger.error(

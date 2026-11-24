@@ -61,7 +61,7 @@ def test_admin_can_invite_a_member(client):
     assert data["status"] == "pending"
     assert data["role"] == "analyst"
     assert token
-    assert data["email_sent"] is True  # dry-run en test
+    assert data["email_sent"] is False  # dry-run : aucun email n'est parti
 
 
 def test_analyst_cannot_invite(client, db_session):
@@ -96,6 +96,28 @@ def test_viewer_cannot_list_members(client, db_session):
         "/api/v1/users", headers=login_headers(client, "viewer@example.com")
     )
     assert response.status_code == 403
+
+
+def test_analyst_can_list_members_for_retention_ownership(client, db_session):
+    """L'étape 7 a besoin de choisir un propriétaire : lecture ouverte aux analystes."""
+    from tests.helpers import create_user, login_headers
+
+    headers, organization_id = admin_of(client)
+    create_user(
+        db_session,
+        organization_id=organization_id,
+        email="analyst-list@example.com",
+        role="analyst",
+    )
+    response = client.get(
+        "/api/v1/users",
+        headers=login_headers(client, "analyst-list@example.com"),
+    )
+    assert response.status_code == 200
+    assert {member["email"] for member in response.json()} == {
+        "team-admin@example.com",
+        "analyst-list@example.com",
+    }
 
 
 def test_existing_member_email_is_rejected(client, db_session):
@@ -202,12 +224,12 @@ def test_expired_token_is_refused(client, db_session):
     assert accept(client, token).status_code == 400
 
 
-def test_used_token_is_refused(client):
+def test_used_token_is_refused_as_conflict(client):
     headers, _ = admin_of(client)
     _, token = invite(client, headers, "once@example.com")
 
     assert accept(client, token).status_code == 200
-    assert accept(client, token).status_code == 400
+    assert accept(client, token).status_code == 409
 
 
 def test_revoked_invitation_is_refused(client):
@@ -374,3 +396,43 @@ def test_shared_password_rule_applies_to_register_and_accept(client):
     headers, _ = admin_of(client)
     _, token = invite(client, headers, "short-accept@example.com")
     assert accept(client, token, password=short).status_code == 422
+
+
+def test_accept_rejects_password_longer_than_72_utf8_bytes(client):
+    headers, _ = admin_of(client)
+    _, token = invite(client, headers, "long-accept@example.com")
+    response = accept(client, token, password="a" * 73)
+    assert response.status_code == 422
+
+
+def test_concurrent_acceptation_of_same_token_returns_409(client, db_session):
+    """Simule la course entre deux acceptations : IntegrityError -> 409, pas 500."""
+    from sqlalchemy import event, text
+
+    headers, organization_id = admin_of(client)
+    invitation, token = invite(client, headers, "race@example.com")
+    model = db_session.get(UserInvitation, invitation["id"])
+
+    inserted = {"done": False}
+
+    def insert_duplicate(session, flush_context, instances):
+        if inserted["done"]:
+            return
+        inserted["done"] = True
+        session.connection().execute(
+            text(
+                "INSERT INTO users "
+                "(organization_id, full_name, role, email, hashed_password, is_active) "
+                "VALUES (:org, 'Concurrent', 'analyst', :email, 'x', 1)"
+            ),
+            {"org": organization_id, "email": model.email},
+        )
+
+    event.listen(db_session, "before_flush", insert_duplicate)
+    try:
+        response = accept(client, token)
+    finally:
+        event.remove(db_session, "before_flush", insert_duplicate)
+
+    assert response.status_code == 409
+    assert "déjà été acceptée" in response.json()["detail"]

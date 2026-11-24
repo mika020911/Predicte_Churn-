@@ -5,6 +5,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -162,6 +163,21 @@ def accept_invitation(
 ) -> User:
     invitation = get_valid_invitation(db, raw_token)
     if invitation is None:
+        # Un jeton déjà accepté est un conflit (double acceptation), pas une
+        # simple invitation invalide. Les jetons expirés/révoqués restent 400.
+        already_used = (
+            db.query(UserInvitation)
+            .filter(
+                UserInvitation.token_hash == hash_token(raw_token),
+                UserInvitation.accepted_at.is_not(None),
+            )
+            .first()
+        )
+        if already_used is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cette invitation a déjà été acceptée.",
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="L'invitation est invalide, expirée ou déjà utilisée.",
@@ -185,25 +201,34 @@ def accept_invitation(
         role=invitation.role,
         is_active=True,
     )
-    db.add(user)
-    invitation.accepted_at = now
+    try:
+        db.add(user)
+        invitation.accepted_at = now
 
-    # Les autres invitations en attente pour cet email deviennent inutiles.
-    (
-        db.query(UserInvitation)
-        .filter(
-            UserInvitation.email == invitation.email,
-            UserInvitation.id != invitation.id,
-            UserInvitation.accepted_at.is_(None),
-            UserInvitation.revoked_at.is_(None),
+        # Les autres invitations en attente pour cet email deviennent inutiles.
+        (
+            db.query(UserInvitation)
+            .filter(
+                UserInvitation.email == invitation.email,
+                UserInvitation.id != invitation.id,
+                UserInvitation.accepted_at.is_(None),
+                UserInvitation.revoked_at.is_(None),
+            )
+            .update(
+                {UserInvitation.revoked_at: now},
+                synchronize_session=False,
+            )
         )
-        .update(
-            {UserInvitation.revoked_at: now},
-            synchronize_session=False,
-        )
-    )
 
-    db.commit()
+        db.commit()
+    except IntegrityError:
+        # Double acceptation simultanée du même jeton : la contrainte d'unicité
+        # sur l'email (ou la mise à jour concurrente) a échoué.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cette invitation a déjà été acceptée.",
+        )
     db.refresh(user)
     return user
 

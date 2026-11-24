@@ -3,6 +3,7 @@ from app.database import Base
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.customer import Customer
+from app.models.customer_action import CustomerAction
 from app.models.import_batch import ImportBatch
 from app.models.observation import Observation
 from app.models.risk_settings import RiskSettings
@@ -16,6 +17,7 @@ __all__ = [
     "Organization",
     "User",
     "Customer",
+    "CustomerAction",
     "ImportBatch",
     "Observation",
     "RiskSettings",

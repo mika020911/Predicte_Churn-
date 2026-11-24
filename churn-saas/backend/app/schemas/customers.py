@@ -3,6 +3,8 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.retention import RetentionStatus, SuggestedAction
+
 class RiskReason(BaseModel):
     feature:str
     impact:float
@@ -40,6 +42,9 @@ class CustomerDetailRead(CustomerRiskRead):
     phone_number:Optional[str]=None
     shap_values:Dict[str,float] = Field(default_factory=dict)
     observation:CustomerObservationRead
+    retention_status:RetentionStatus = "none"
+    owner_user_id:Optional[int]=None
+    suggested_actions:List[SuggestedAction] = Field(default_factory=list)
 
 
 class CustomerListResponse(BaseModel):

@@ -36,8 +36,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
     try:
         organization = Organization(
             name=payload.organization_name,
-            api_key=secrets.token_urlsafe(32),
-            is_active=True
+            is_active=True,
         )
         db.add(organization)
         db.flush()  # Flush to get the organization ID

@@ -11,6 +11,10 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleString("fr-FR");
 }
 
+function importSourceLabel(source: string): string {
+  return source === "api" ? "API" : "Fichier";
+}
+
 export function ImportHistory() {
   const { token } = useAuth();
 
@@ -76,6 +80,7 @@ export function ImportHistory() {
           <thead className="bg-slate-50">
             <tr className="text-left text-black">
               <th className="px-4 py-3">Fichier</th>
+              <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Lignes</th>
@@ -88,13 +93,13 @@ export function ImportHistory() {
           <tbody className="divide-y divide-slate-200">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-black">
+                <td colSpan={8} className="px-4 py-8 text-center text-black">
                   Chargement de l’historique…
                 </td>
               </tr>
             ) : imports.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-black">
+                <td colSpan={8} className="px-4 py-8 text-center text-black">
                   Aucun import pour le moment.
                 </td>
               </tr>
@@ -102,6 +107,15 @@ export function ImportHistory() {
               imports.map((item) => (
                 <tr key={item.import_batch_id} className="text-black">
                   <td className="px-4 py-3 font-medium">{item.filename}</td>
+                  <td className="px-4 py-3">
+                    {item.source === "api" ? (
+                      <span className="inline-block rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-950">
+                        API
+                      </span>
+                    ) : (
+                      importSourceLabel(item.source)
+                    )}
+                  </td>
                   <td className="px-4 py-3">{formatDate(item.created_at)}</td>
                   <td className="px-4 py-3">
                     <span

@@ -38,6 +38,10 @@ DEFAULT_CONTRACT_MAP = {
     "1": 1, "annuel": 1, "annual": 1, "yearly": 1,
 }
 
+
+class UnrankedPlanError(ValueError):
+    """Plan absent du classement de l'organisation (mode API tolérant)."""
+
 #Utilitaire
 def normalize(value) -> str:
     """Ignore accents, majuscules et espaces parasites ('Jährlich ' -> 'jahrlich')."""
@@ -188,10 +192,17 @@ def validate_column_mapping(mapping: dict) -> list[str]:
     return problems
  
  
-def apply_column_mapping(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
-    """Garde les colonnes mappées et les renomme avec les noms internes."""
+def apply_column_mapping(
+    df: pd.DataFrame, mapping: dict, extra_columns: tuple[str, ...] = ()
+) -> pd.DataFrame:
+    """Garde les colonnes mappées et les renomme avec les noms internes.
+
+    `extra_columns` permet à l'API d'ingestion de conserver des champs qui ne
+    font pas partie du mapping CSV (téléphone, rang de plan direct).
+    """
     rename = {csv_col: field for field, csv_col in mapping.items() if csv_col}
-    return df[list(rename)].rename(columns=rename)
+    kept = list(rename) + [c for c in extra_columns if c in df.columns]
+    return df[kept].rename(columns=rename)
  
  
 def build_import_preview(
@@ -286,8 +297,17 @@ def ingest_dataframe(
     org: Organization,
     mapping: dict | None,
     db: Session,
+    *,
+    extra_columns: tuple[str, ...] = (),
+    lenient_plans: bool = False,
 ) -> ImportBatch:
-    """Cœur d'import d'un DataFrame déjà lu (CSV ou XLSX), indépendant de l'utilisateur."""
+    """Cœur d'import d'un DataFrame déjà lu (CSV ou XLSX), indépendant de l'utilisateur.
+
+    `lenient_plans` est utilisé par l'API d'ingestion : un plan non classé
+    devient une anomalie de ligne au lieu de faire échouer tout le lot.
+    `extra_columns` conserve des colonnes hors mapping CSV (téléphone, rang de
+    plan direct) ; le comportement CSV/Excel reste inchangé par défaut.
+    """
     org_id = org.id
     batch_id = batch.id
     batch.total_rows = len(df)
@@ -306,13 +326,13 @@ def ingest_dataframe(
             db.commit()
             return batch
  
-        df = apply_column_mapping(df, mapping)
+        df = apply_column_mapping(df, mapping, extra_columns)
         contract_map = build_contract_map(org.contract_mapping)
 
         # Plans : tous doivent être classés avant l'import, sinon les rangs seraient faux
         plan_ranks = {k: float(v) for k, v in (org.plan_mapping or {}).items()}
         has_plan_column = "plan" in df.columns
-        if has_plan_column:
+        if has_plan_column and not lenient_plans:
             unranked = [p for p in distinct_plan_labels(df["plan"]) if normalize(p) not in plan_ranks]
             if unranked:
                 batch.status = "failed"
@@ -384,15 +404,39 @@ def ingest_dataframe(
                         f"contract_type non reconnu : '{raw_contract}' "
                         "(attendu : mensuel/annuel, 0/1 ou une valeur du mapping)"
                     )
+                # Rang direct fourni par l'API (0–1), prioritaire sur le plan.
+                direct_plan_rank = None
+                raw_direct_rank = row.get("plan_tier_rank")
+                if raw_direct_rank is not None and pd.notna(raw_direct_rank):
+                    direct_plan_rank = to_float(raw_direct_rank)
+                    if not 0 <= direct_plan_rank <= 1:
+                        raise ValueError(
+                            "plan_tier_rank doit être compris entre 0 et 1"
+                        )
+
+                plan_key = None
                 if has_plan_column:
                     raw_plan = row["plan"]
-                    if pd.isna(raw_plan) or not str(raw_plan).strip():
+                    if pd.notna(raw_plan) and str(raw_plan).strip():
+                        plan_key = normalize(raw_plan)
+                        if plan_key not in plan_ranks:
+                            raise UnrankedPlanError(
+                                f"Plan non classé : '{raw_plan}'"
+                            )
+                    elif direct_plan_rank is None and not lenient_plans:
                         raise ValueError("plan manquant")
-                    plan_rank = plan_ranks[normalize(raw_plan)]
+
+                if direct_plan_rank is not None:
+                    plan_rank = direct_plan_rank
+                elif plan_key is not None:
+                    plan_rank = plan_ranks[plan_key]
                 else:
                     plan_rank = NEUTRAL_PLAN_TIER_RANK
                 floats = {k: parse_number(row, k, to_float) for k in FLOAT_FIELDS}
                 ints = {k: parse_number(row, k, to_int) for k in INT_FIELDS}
+            except UnrankedPlanError as e:
+                add_anomaly(row_num, ext_id, "UNKNOWN_PLAN", str(e))
+                continue
             except (ValueError, TypeError, OverflowError) as e:
                 add_anomaly(row_num, ext_id, "DATA_PARSING_ERROR",
                             f"Erreur de conversion de types : {e}")
@@ -414,13 +458,16 @@ def ingest_dataframe(
             if customer is None:
                 raw_name = row.get("customer_name")
                 raw_email = row.get("customer_email")
+                raw_phone = row.get("phone_number")
                 name = str(raw_name).strip() if pd.notna(raw_name) else ""
                 email = str(raw_email).strip() if pd.notna(raw_email) else ""
+                phone = str(raw_phone).strip() if pd.notna(raw_phone) else ""
                 customer = Customer(
                     organization_id=org_id,
                     external_id=ext_id,
                     name=name or f"Client {ext_id}",
                     email=email or None,
+                    phone_number=phone or None,
                 )
                 db.add(customer)
                 db.flush()

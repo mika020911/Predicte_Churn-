@@ -33,6 +33,7 @@ class ImportBatchRead(BaseModel):
 class ImportBatchSummary(BaseModel):
     import_batch_id: int
     filename: str
+    source: str
     status: str
     total_rows: int
     imported_rows: int

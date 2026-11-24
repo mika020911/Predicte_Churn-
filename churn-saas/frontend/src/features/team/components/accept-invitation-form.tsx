@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
 import {
@@ -28,13 +28,20 @@ export function AcceptInvitationForm() {
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Le Strict Mode rejoue l'effet en dev : on mémorise le jeton lu avant que
+  // replaceState ne le retire de l'URL.
+  const invitationTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const invitationToken = searchParams.get("token") ?? "";
+    if (invitationTokenRef.current === null) {
+      const searchParams = new URLSearchParams(window.location.search);
+      invitationTokenRef.current = searchParams.get("token") ?? "";
 
-    // Retire le jeton de la barre d'adresse et de l'historique du navigateur.
-    window.history.replaceState({}, "", window.location.pathname);
+      // Retire le jeton de la barre d'adresse et de l'historique du navigateur.
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    const invitationToken = invitationTokenRef.current;
 
     setToken(invitationToken);
 

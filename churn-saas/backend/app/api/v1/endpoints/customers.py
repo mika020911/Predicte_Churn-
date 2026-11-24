@@ -188,6 +188,8 @@ def update_customer_retention(
                 .filter(
                     User.id == owner_id,
                     User.organization_id == current_user.organization_id,
+                    User.is_active.is_(True),
+                    User.role.in_([ROLE_ADMIN, ROLE_ANALYST]),
                 )
                 .first()
             )
@@ -195,7 +197,8 @@ def update_customer_retention(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
-                        "Le propriétaire doit appartenir à la même organisation."
+                        "Le propriétaire doit être un utilisateur actif "
+                        "(administrateur ou analyste) de la même organisation."
                     ),
                 )
         customer.owner_user_id = owner_id

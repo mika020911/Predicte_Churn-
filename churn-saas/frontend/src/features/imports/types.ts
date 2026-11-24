@@ -25,6 +25,7 @@ export interface ImportBatch {
 export interface ImportBatchSummary {
   import_batch_id: number;
   filename: string;
+  source: string;
   status: string;
   total_rows: number;
   imported_rows: number;

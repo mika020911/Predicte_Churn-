@@ -186,6 +186,7 @@ def list_import_batches(
         ImportBatchSummary(
             import_batch_id=b.id,
             filename=b.filename,
+            source=b.source,
             status=b.status,
             total_rows=b.total_rows,
             imported_rows=b.imported_rows,

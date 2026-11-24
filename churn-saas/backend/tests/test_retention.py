@@ -280,6 +280,91 @@ def test_patch_customer_rejects_owner_from_another_organization(client, db_sessi
     assert response.status_code == 400
 
 
+def test_patch_customer_rejects_inactive_owner(client, db_session):
+    headers, organization_id = setup_org(client, db_session)
+    customer = make_customer(db_session, organization_id)
+    owner = create_user(
+        db_session,
+        organization_id=organization_id,
+        email="inactive-owner@example.com",
+        role="analyst",
+        is_active=False,
+    )
+
+    response = client.patch(
+        f"{CUSTOMERS}/{customer.id}",
+        json={"owner_user_id": owner.id},
+        headers=headers,
+    )
+    assert response.status_code == 400
+
+
+def test_patch_customer_rejects_viewer_owner(client, db_session):
+    headers, organization_id = setup_org(client, db_session)
+    customer = make_customer(db_session, organization_id)
+    owner = create_user(
+        db_session,
+        organization_id=organization_id,
+        email="viewer-owner@example.com",
+        role="viewer",
+    )
+
+    response = client.patch(
+        f"{CUSTOMERS}/{customer.id}",
+        json={"owner_user_id": owner.id},
+        headers=headers,
+    )
+    assert response.status_code == 400
+
+
+def test_deactivating_member_clears_owned_customers(client, db_session):
+    headers, organization_id = setup_org(client, db_session)
+    owner = create_user(
+        db_session,
+        organization_id=organization_id,
+        email="owner-deactivated@example.com",
+        role="analyst",
+    )
+    customer = make_customer(db_session, organization_id)
+    assert client.patch(
+        f"{CUSTOMERS}/{customer.id}",
+        json={"owner_user_id": owner.id},
+        headers=headers,
+    ).status_code == 200
+
+    response = client.patch(
+        f"/api/v1/users/{owner.id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Customer, customer.id).owner_user_id is None
+
+
+def test_deleting_member_clears_owned_customers(client, db_session):
+    headers, organization_id = setup_org(client, db_session)
+    owner = create_user(
+        db_session,
+        organization_id=organization_id,
+        email="owner-deleted@example.com",
+        role="analyst",
+    )
+    customer = make_customer(db_session, organization_id)
+    assert client.patch(
+        f"{CUSTOMERS}/{customer.id}",
+        json={"owner_user_id": owner.id},
+        headers=headers,
+    ).status_code == 200
+
+    response = client.delete(
+        f"/api/v1/users/{owner.id}", headers=headers
+    )
+    assert response.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Customer, customer.id).owner_user_id is None
+
+
 def test_patch_unknown_customer_returns_404(client):
     admin = register_admin(client, email="unknown-customer@example.com")
     headers = login_headers(client, admin["email"])

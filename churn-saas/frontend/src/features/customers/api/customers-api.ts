@@ -1,7 +1,11 @@
+import { downloadFile, type DownloadResult } from "@/shared/lib/download";
 import type {
     CustomerDetail,
+    CustomerHistoryResponse,
     CustomerListParams,
     CustomerListResponse,
+    SimulationPayload,
+    SimulationResult,
 }from "../types";
 
 const API_URL =
@@ -58,6 +62,77 @@ export async function getCustomer(
             typeof body.detail === "string"
                 ? body.detail
                 : "Impossible de charger la fiche du client.";
+        throw new Error(detail);
+    }
+
+    return response.json();
+}
+export async function simulateCustomer(
+    token: string,
+    customerId: number,
+    payload: SimulationPayload,
+): Promise<SimulationResult> {
+    const response = await fetch(
+        `${API_URL}/customers/${customerId}/simulate`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        },
+    );
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const detail =
+            typeof body.detail === "string"
+                ? body.detail
+                : "Impossible de simuler un nouveau score.";
+        throw new Error(detail);
+    }
+
+    return response.json();
+}
+
+export async function exportCustomers(
+    token: string,
+    params: CustomerListParams = {},
+    format: "csv" | "xlsx" = "csv",
+): Promise<DownloadResult> {
+    const query = new URLSearchParams();
+    if (params.search?.trim()) query.append("search", params.search.trim());
+    if (params.zone) query.append("zone", params.zone);
+    query.set("format", format);
+
+    return downloadFile(
+        token,
+        `${API_URL}/customers/export?${query.toString()}`,
+        `clients.${format}`,
+    );
+}
+
+export async function getCustomerHistory(
+    token: string,
+    customerId: number,
+): Promise<CustomerHistoryResponse> {
+    const response = await fetch(
+        `${API_URL}/customers/${customerId}/history`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+        },
+    );
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const detail =
+            typeof body.detail === "string"
+                ? body.detail
+                : "Impossible de charger l’historique du client.";
         throw new Error(detail);
     }
 

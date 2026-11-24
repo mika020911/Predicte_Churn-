@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user, get_db
+from app.api.deps import get_current_active_user, get_db, require_roles
+from app.core.roles import ROLE_ADMIN
 from app.models import User
 from app.schemas.risk_settings import RiskSettingsRead, RiskSettingsUpdate
 from app.services import risk_settings_service
@@ -22,7 +23,7 @@ def read_risk_settings(
 def update_risk_settings(
     payload: RiskSettingsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_roles(ROLE_ADMIN)),
 ):
     """Modifie les seuils et met à jour la zone des prédictions existantes."""
     return risk_settings_service.update_risk_settings(

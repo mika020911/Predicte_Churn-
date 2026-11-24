@@ -8,7 +8,7 @@ export interface ImportAnomaly {
 export interface ImportBatch {
   id: number;
   organization_id: number;
-  uploaded_by_user_id: number;
+  uploaded_by_user_id: number | null;
   filename: string;
   source: string;
   status: string;
@@ -49,4 +49,8 @@ export interface ImportPreview {
   proposed_plan_order: string[];
   problems: string[];
   confirmed: boolean;
+}
+export interface PlanOption {
+  name: string;
+  rank: number;
 }

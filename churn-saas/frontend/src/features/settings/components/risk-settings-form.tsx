@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { canManageSettings } from "@/features/auth/permissions";
 import { getRiskSettings, updateRiskSettings } from "../api/risk-settings-api";
 
 function formatDate(value: string | null): string {
@@ -17,7 +18,8 @@ function toPercent(value: string): number {
 }
 
 export function RiskSettingsForm() {
-  const { token, loading: authLoading } = useAuth();
+  const { token, user, loading: authLoading } = useAuth();
+  const canEdit = canManageSettings(user?.role);
 
   const [thresholdMedium, setThresholdMedium] = useState("");
   const [thresholdHigh, setThresholdHigh] = useState("");
@@ -73,6 +75,11 @@ export function RiskSettingsForm() {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (!canEdit) {
+      setError("Seul un administrateur peut modifier les seuils de risque.");
+      return;
+    }
 
     if (!token) {
       setError("Connecte-toi pour modifier les paramètres.");
@@ -162,6 +169,12 @@ export function RiskSettingsForm() {
         </p>
       )}
 
+      {!canEdit && (
+        <p className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+          Lecture seule : seul un administrateur peut modifier ces seuils.
+        </p>
+      )}
+
       <section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-black">Zones de risque</h2>
         <p className="mt-1 text-sm text-black">
@@ -217,6 +230,7 @@ export function RiskSettingsForm() {
               max={99}
               step={1}
               value={thresholdMedium}
+              disabled={!canEdit || saving}
               onChange={(event) => {
                 setThresholdMedium(event.target.value);
                 setSuccess(null);
@@ -239,6 +253,7 @@ export function RiskSettingsForm() {
               max={99}
               step={1}
               value={thresholdHigh}
+              disabled={!canEdit || saving}
               onChange={(event) => {
                 setThresholdHigh(event.target.value);
                 setSuccess(null);
@@ -256,7 +271,8 @@ export function RiskSettingsForm() {
             Dernière modification : {formatDate(updatedAt)}
           </p>
 
-          <div className="flex gap-3">
+          {canEdit && (
+            <div className="flex gap-3">
             <button
               type="button"
               onClick={() => {
@@ -278,7 +294,8 @@ export function RiskSettingsForm() {
             >
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
-          </div>
+            </div>
+          )}
         </div>
       </form>
     </main>

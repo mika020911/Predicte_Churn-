@@ -15,7 +15,7 @@ class AnomalyReport(BaseModel):
 class ImportBatchRead(BaseModel):
     id: int
     organization_id: int
-    uploaded_by_user_id: int
+    uploaded_by_user_id: Optional[int] = None
     filename: str
     source: str
     status: str
@@ -38,6 +38,14 @@ class ImportBatchSummary(BaseModel):
     imported_rows: int
     error_rows: int
     created_at: datetime
+
+
+class PlanOption(BaseModel):
+    """Plan de l'organisation et son rang de gamme (0 = entrée, 1 = haut de gamme)."""
+
+    name: str
+    rank: float
+
 
 class ImportMappingIn(BaseModel):
     column_mapping: Dict[str, Optional[str]] = {}

@@ -15,6 +15,14 @@ class Settings(BaseSettings):
 
     frontend_url: str = "http://localhost:3000"
 
+    # Taille maximale d'un fichier d'import (CSV ou XLSX), en mégaoctets.
+    max_upload_size_mb: int = 20
+
+    # Invitations d'équipe : durée de validité en heures (168 h = 7 jours).
+    invitation_expire_hours: int = 168
+    # En développement : ne pas envoyer d'email (le lien reste dans la réponse API).
+    email_dry_run: bool = False
+
     smtp_host: str = "smtp-relay.brevo.com"
     smtp_port: int = 587
     smtp_user: str | None = None

@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from app.config import settings
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models import Organization, User, RiskSettings,  PasswordResetToken
 from app.schemas.auth import LoginRequest, Token
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import RegisterRequest, UserRead
 
 import hashlib
 
@@ -19,13 +19,15 @@ from app.schemas.auth import (
     PasswordResetMessage,
     ResetPasswordRequest,
 )
+from app.schemas.team import InvitationAccept, InvitationPreview
+from app.services import invitation_service
 from app.services.email_service import send_password_reset_email
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserRead, status_code = status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Un compte existe déjà avec cet email")
@@ -119,6 +121,34 @@ def login_json(payload:LoginRequest, db:Session = Depends(get_db)) -> Token:
 def read_current_user(current_user: User = Depends(get_current_active_user)) -> User:
     #Profil User
     return current_user
+
+#invitations d'équipe------------------
+
+@router.get("/invitations/preview", response_model=InvitationPreview)
+def preview_invitation(
+    token: str = Query(..., min_length=20, max_length=200),
+    db: Session = Depends(get_db),
+):
+    """Aperçu public d'une invitation (email, organisation, rôle)."""
+    return invitation_service.preview_invitation(db, token)
+
+
+@router.post("/invitations/accept", response_model=Token)
+def accept_invitation(
+    payload: InvitationAccept,
+    db: Session = Depends(get_db),
+) -> Token:
+    """Accepte l'invitation et connecte automatiquement le nouvel utilisateur."""
+    user = invitation_service.accept_invitation(
+        db, payload.token, payload.full_name, payload.password
+    )
+    access_token = create_access_token(
+        subject=str(user.id),
+        organization_id=user.organization_id,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    return Token(access_token=access_token, token_type="bearer")
+
 
 #forget password------------------
 

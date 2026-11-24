@@ -2,10 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/features/auth/context/auth-context";
+import { canManageSettings } from "@/features/auth/permissions";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Vue d’ensemble", icon: "/icons/maison.png" },
   { href: "/dashboard/customers", label: "Clients", icon: "/icons/client.png" },
+  {
+    href: "/dashboard/actions",
+    label: "Actions",
+    icon: "/icons/historique.png",
+  },
   {
     href: "/dashboard/imports",
     label: "Importer des fichiers",
@@ -15,6 +29,12 @@ const navItems = [
     href: "/dashboard/imports/history",
     label: "Historique",
     icon: "/icons/historique.png",
+  },
+  {
+    href: "/dashboard/team",
+    label: "Équipe",
+    icon: "/icons/email.png",
+    adminOnly: true,
   },
   {
     href: "/dashboard/settings",
@@ -47,6 +67,10 @@ export function DashboardNav({
   onNavigate,
 }: DashboardNavProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const visibleItems = navItems.filter(
+    (item) => !item.adminOnly || canManageSettings(user?.role),
+  );
 
   return (
     <>
@@ -79,7 +103,7 @@ export function DashboardNav({
             Espace de travail
           </p>
 
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = isActive(item.href, pathname);
 
             return (

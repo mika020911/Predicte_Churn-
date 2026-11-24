@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
-import { getImportDetails } from "../api/imports-api";
+import { exportImportReport, getImportDetails } from "../api/imports-api";
 import type { ImportBatch } from "../types";
+import { importStatusLabel } from "../status";
 
 export function ImportDetails() {
   const params = useParams<{ id: string }>();
@@ -13,6 +14,7 @@ export function ImportDetails() {
 
   const [batch, setBatch] = useState<ImportBatch | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,6 +78,21 @@ export function ImportDetails() {
 
   if (!batch) return null;
 
+  async function handleExport() {
+    if (!token || !batch) return;
+    setExporting(true);
+    setError(null);
+    try {
+      await exportImportReport(token, batch.id, "csv");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "L’export a échoué.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6 text-black">
       <Link
@@ -85,11 +102,21 @@ export function ImportDetails() {
         ← Retour à l’historique
       </Link>
 
-      <header>
-        <h1 className="text-3xl font-bold text-black">Rapport d’import</h1>
-        <p className="mt-2 text-black">
-          Fichier : {batch.filename} — statut : {batch.status}
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-black">Rapport d’import</h1>
+          <p className="mt-2 text-black">
+            Fichier : {batch.filename} — statut : {importStatusLabel(batch.status)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          disabled={!token || exporting}
+          className="h-fit rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50 disabled:opacity-50"
+        >
+          {exporting ? "Export…" : "Exporter les anomalies (CSV)"}
+        </button>
       </header>
 
       {batch.error_message && (

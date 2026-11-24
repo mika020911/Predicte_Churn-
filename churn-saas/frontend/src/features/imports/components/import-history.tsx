@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth/context/auth-context";
 import { getImportHistory } from "../api/imports-api";
 import type { ImportBatchSummary } from "../types";
+import { importStatusClass, importStatusLabel } from "../status";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString("fr-FR");
@@ -102,7 +103,13 @@ export function ImportHistory() {
                 <tr key={item.import_batch_id} className="text-black">
                   <td className="px-4 py-3 font-medium">{item.filename}</td>
                   <td className="px-4 py-3">{formatDate(item.created_at)}</td>
-                  <td className="px-4 py-3">{item.status}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${importStatusClass(item.status)}`}
+                    >
+                      {importStatusLabel(item.status)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{item.total_rows}</td>
                   <td className="px-4 py-3">{item.imported_rows}</td>
                   <td className="px-4 py-3">{item.error_rows}</td>

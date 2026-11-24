@@ -1,4 +1,55 @@
+import hashlib
+from datetime import datetime, timedelta, timezone
+
 import pytest
+
+from app.models import PasswordResetToken, User
+
+
+def test_register_rejects_password_longer_than_72_utf8_bytes(client):
+    """bcrypt est limité à 72 octets : 73 caractères doivent donner un 422."""
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "long-password@company.com",
+            "password": "a" * 73,
+            "full_name": "Mot de passe long",
+            "organization_name": "Org longue",
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_reset_rejects_password_longer_than_72_utf8_bytes(client, db_session):
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "reset-long@company.com",
+            "password": "Password123!",
+            "full_name": "Reset long",
+            "organization_name": "Org reset",
+        },
+    )
+    user = (
+        db_session.query(User)
+        .filter(User.email == "reset-long@company.com")
+        .one()
+    )
+    raw_token = "r" * 40
+    db_session.add(
+        PasswordResetToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": raw_token, "new_password": "a" * 73},
+    )
+    assert response.status_code == 422
 
 
 def test_register_user_success(client):
@@ -110,3 +161,15 @@ def test_read_me_unauthorized(client):
     """Test qu'un appel /me sans token ou avec un token invalide retourne une 401."""
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 401
+
+def test_public_register_ignores_a_client_supplied_role(client):
+    """Le rôle vient du serveur : un « role » dans le corps ne doit pas être pris en compte."""
+    response = client.post("/api/v1/auth/register", json={
+        "email": "role-injection@company.com",
+        "password": "Password123!",
+        "full_name": "Role Injection",
+        "organization_name": "Role Injection Org",
+        "role": "viewer",
+    })
+    assert response.status_code == 201
+    assert response.json()["role"] == "admin"

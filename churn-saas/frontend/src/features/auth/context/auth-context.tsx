@@ -10,6 +10,8 @@ import {
   loginApi,
   registerAPI,
 } from "../api/auth-api";
+import { acceptInvitationApi } from "@/features/team/api/team-api";
+import type { AcceptInvitationPayload } from "@/features/team/types";
 import { createContext } from "react";
 import { useState, useEffect, useContext } from "react";
 import { useRouter } from "next/navigation";
@@ -20,6 +22,7 @@ interface AuthContextType{
     loading: boolean;
     login: (payload:LoginPayload) => Promise<void>;
     register: (payload:RegisterPayload) => Promise<void>;
+    acceptInvitation: (payload: AcceptInvitationPayload) => Promise<void>;
     logout: () => void;
 }
 
@@ -65,6 +68,15 @@ export function AuthProvider ({children}: {children: React.ReactNode}) {
 
     };
 
+    const acceptInvitation = async (payload: AcceptInvitationPayload) => {
+        const data = await acceptInvitationApi(payload);
+        localStorage.setItem('churnsight_token', data.access_token);
+        setToken(data.access_token);
+        const userData = await getMeApi(data.access_token);
+        setUser(userData);
+        router.push('/dashboard');
+    };
+
     const logout = ()=>{
         localStorage.removeItem('churnsight_token');
         setToken(null);
@@ -74,7 +86,7 @@ export function AuthProvider ({children}: {children: React.ReactNode}) {
     };
 
     return(
-        <AuthContext.Provider value={{user, token, loading, login, register, logout}}>
+        <AuthContext.Provider value={{user, token, loading, login, register, acceptInvitation, logout}}>
             {children}
         </AuthContext.Provider>
     );

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
 from app.core.roles import ROLE_ADMIN, ROLE_ANALYST
-from app.models import Organization, User, UserInvitation
+from app.models import Customer, Organization, User, UserInvitation
 from app.schemas.team import (
     InvitationCreate,
     InvitationRead,
@@ -53,6 +53,15 @@ def _get_invitation(
             detail="Invitation introuvable.",
         )
     return invitation
+
+
+def _clear_owned_customers(db: Session, user_id: int) -> None:
+    """Détache les clients suivis par un membre qui n'est plus actif."""
+    (
+        db.query(Customer)
+        .filter(Customer.owner_user_id == user_id)
+        .update({Customer.owner_user_id: None}, synchronize_session=False)
+    )
 
 
 def _ensure_admin_remains(
@@ -232,6 +241,8 @@ def update_member(
         member.role = payload.role
     if payload.is_active is not None:
         member.is_active = payload.is_active
+        if payload.is_active is False:
+            _clear_owned_customers(db, member.id)
 
     db.commit()
     db.refresh(member)
@@ -259,6 +270,7 @@ def deactivate_member(
 
     if member.is_active:
         member.is_active = False
-        db.commit()
-        db.refresh(member)
+    _clear_owned_customers(db, member.id)
+    db.commit()
+    db.refresh(member)
     return member

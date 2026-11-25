@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Taille maximale d'un fichier d'import (CSV ou XLSX), en mégaoctets.
     max_upload_size_mb: int = 20
 
+    # Taille maximale du corps JSON de l'API d'ingestion, en mégaoctets.
+    max_ingest_body_size_mb: int = 10
+
     # Invitations d'équipe : durée de validité en heures (168 h = 7 jours).
     invitation_expire_hours: int = 168
     # En développement : ne pas envoyer d'email (le lien reste dans la réponse API).

@@ -283,6 +283,12 @@ export function IntegrationsPanel() {
             <code>{CURL_EXAMPLE}</code>
           </pre>
 
+          <p className="mt-3 text-sm text-black">
+            Le format est validé avant l’import : une valeur invalide refuse
+            toute la requête (422, avec la position de la ligne). Les doublons
+            et les plans inconnus sont signalés ligne par ligne.
+          </p>
+
           <button
             type="button"
             onClick={() => void copyText(CURL_EXAMPLE, "example")}

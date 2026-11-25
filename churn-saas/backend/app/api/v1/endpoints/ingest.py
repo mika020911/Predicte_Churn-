@@ -77,7 +77,41 @@ def _to_dataframe(payload: IngestRequest) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-@router.post("/observations", response_model=IngestResult)
+@router.post(
+    "/observations",
+    response_model=IngestResult,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": IngestRequest.model_json_schema(),
+                    "example": {
+                        "observations": [
+                            {
+                                "customer_id": "CLI-1042",
+                                "snapshot_date": "2026-11-01",
+                                "name": "Camille Martin",
+                                "email": "camille.martin@example.com",
+                                "phone_number": "+33612345678",
+                                "tenure_months": 18,
+                                "contract_type": 1,
+                                "mrr_change_pct": -12.5,
+                                "support_tickets_30d": 4,
+                                "recency_days": 9,
+                                "frequency_trend_30d": -0.18,
+                                "engagement_breadth": 0.42,
+                                "payment_failures_90d": 1,
+                                "plan": "Business",
+                                "plan_tier_rank": 0.6,
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+    },
+)
 async def ingest_observations(
     request: Request,
     db: Session = Depends(get_db),

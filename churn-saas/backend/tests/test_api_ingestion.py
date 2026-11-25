@@ -284,3 +284,15 @@ def test_predictions_are_generated_for_ingested_rows(client, db_session):
     assert 0.0 <= predictions[0].score <= 1.0
     assert predictions[0].is_active is True
     assert db_session.get(ImportBatch, batch_id).source == "api"
+
+
+def test_openapi_documents_ingest_request_body(client):
+    schema = client.get("/openapi.json").json()
+    operation = schema["paths"][INGEST_URL]["post"]
+
+    body = operation["requestBody"]
+    assert body["required"] is True
+    content = body["content"]["application/json"]
+    assert content["schema"]["title"] == "IngestRequest"
+    assert "observations" in content["schema"]["properties"]
+    assert content["example"]["observations"][0]["customer_id"]
